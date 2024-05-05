@@ -1,5 +1,5 @@
 """
-File : source_data.py
+File : get_component.py
 load s&p 500 and nasdaq companies
 """
 
@@ -10,10 +10,12 @@ import re
 from ftplib import FTP
 from io import StringIO
 import yfinance as yf
-import json
-import os
+from file_io import save_to_json, read_from_json
+from datetime import date
+import datetime as dt
 
 UNKNOWN = "unknown"
+INFO_JSON_PATH = "stock_info.json"
 
 Ticket = namedtuple("Ticket", ["ticket", "sector", "industry"])
 
@@ -152,7 +154,7 @@ def insert_sector(tickets: dict):
 
     empty_list = []
 
-    stock_info: dict = read_from_json("stock_info.json")
+    stock_info: dict = read_from_json(json_file_path=INFO_JSON_PATH)
 
     for idx, name in enumerate(tickets.keys()):
 
@@ -172,44 +174,8 @@ def insert_sector(tickets: dict):
     for name in empty_list:
         del tickets[name]
 
-    save_to_json(tickets=tickets)
+    save_to_json(data=tickets, json_file_path=INFO_JSON_PATH)
     return tickets
-
-
-def _json_path() -> str:
-    """
-    return json path
-    """
-    current_file_path = os.path.abspath(__file__)
-    dir = os.path.dirname(current_file_path)
-    json_file_path = os.path.join(dir, "stock_info.json")
-
-    return json_file_path
-
-
-def read_from_json(json_file_path: str = _json_path()) -> None:
-    """
-    read json data
-    """
-
-    with open(file=json_file_path, mode="r") as file:
-        data = json.load(file)
-
-    return data
-
-
-def save_to_json(tickets: dict) -> None:
-    """
-    save stock info to json
-    """
-
-    json_file_path = _json_path()
-
-    if os.path.exists(json_file_path):
-        os.remove(path=json_file_path)
-
-    with open(file=json_file_path, mode="w") as file:
-        json.dump(tickets, file)
 
 
 def load_component() -> dict:
@@ -217,3 +183,45 @@ def load_component() -> dict:
     return component stock info
     """
     return insert_sector(tickets=get_tickers_from_nasdaq())
+
+
+def get_yf_data(ticket_name: str, start_date, end_date) -> dict:
+    ticker_data = {}
+    df = yf.download(ticket_name, start=start_date, end=end_date, auto_adjust=True)
+    yahoo_response = df.to_dict()
+    timestamps = list(yahoo_response["Open"].keys())
+    timestamps = list(map(lambda timestamp: int(timestamp.timestamp()), timestamps))
+    opens = list(yahoo_response["Open"].values())
+    closes = list(yahoo_response["Close"].values())
+    lows = list(yahoo_response["Low"].values())
+    highs = list(yahoo_response["High"].values())
+    volumes = list(yahoo_response["Volume"].values())
+    candles = []
+
+    for i in range(0, len(opens)):
+        candle = {}
+        candle["open"] = opens[i]
+        candle["close"] = closes[i]
+        candle["low"] = lows[i]
+        candle["high"] = highs[i]
+        candle["volume"] = volumes[i]
+        candle["datetime"] = timestamps[i]
+        candles.append(candle)
+
+    ticker_data["candles"] = candles
+    return ticker_data
+
+
+def load_prices_from_yahoo(ticket_name: dict) -> dict:
+    """
+    load stocks price and save to json
+    """
+
+    print("*** Loading Stocks from Yahoo Finance ***")
+    today = date.today()
+    start_date = today - dt.timedelta(days=1 * 365 + 183)  # 183 = 6 months
+    bar_dict = {}
+    ticker_data = get_yf_data(ticket_name, start_date, today)
+    bar_dict[ticket_name] = ticker_data
+
+    return bar_dict
