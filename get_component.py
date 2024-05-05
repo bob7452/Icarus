@@ -10,9 +10,7 @@ import re
 from ftplib import FTP
 from io import StringIO
 import yfinance as yf
-from file_io import save_to_json, read_from_json
-from datetime import date
-import datetime as dt
+from file_io import save_to_json,read_from_json
 
 UNKNOWN = "unknown"
 INFO_JSON_PATH = "stock_info.json"
@@ -174,54 +172,11 @@ def insert_sector(tickets: dict):
     for name in empty_list:
         del tickets[name]
 
-    save_to_json(data=tickets, json_file_path=INFO_JSON_PATH)
+    save_to_json(data=tickets,json_file_path=INFO_JSON_PATH)
     return tickets
-
 
 def load_component() -> dict:
     """
     return component stock info
     """
     return insert_sector(tickets=get_tickers_from_nasdaq())
-
-
-def get_yf_data(ticket_name: str, start_date, end_date) -> dict:
-    ticker_data = {}
-    df = yf.download(ticket_name, start=start_date, end=end_date, auto_adjust=True)
-    yahoo_response = df.to_dict()
-    timestamps = list(yahoo_response["Open"].keys())
-    timestamps = list(map(lambda timestamp: int(timestamp.timestamp()), timestamps))
-    opens = list(yahoo_response["Open"].values())
-    closes = list(yahoo_response["Close"].values())
-    lows = list(yahoo_response["Low"].values())
-    highs = list(yahoo_response["High"].values())
-    volumes = list(yahoo_response["Volume"].values())
-    candles = []
-
-    for i in range(0, len(opens)):
-        candle = {}
-        candle["open"] = opens[i]
-        candle["close"] = closes[i]
-        candle["low"] = lows[i]
-        candle["high"] = highs[i]
-        candle["volume"] = volumes[i]
-        candle["datetime"] = timestamps[i]
-        candles.append(candle)
-
-    ticker_data["candles"] = candles
-    return ticker_data
-
-
-def load_prices_from_yahoo(ticket_name: dict) -> dict:
-    """
-    load stocks price and save to json
-    """
-
-    print("*** Loading Stocks from Yahoo Finance ***")
-    today = date.today()
-    start_date = today - dt.timedelta(days=1 * 365 + 183)  # 183 = 6 months
-    bar_dict = {}
-    ticker_data = get_yf_data(ticket_name, start_date, today)
-    bar_dict[ticket_name] = ticker_data
-
-    return bar_dict
