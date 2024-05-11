@@ -1,6 +1,7 @@
 import os
 import json
 
+
 def read_from_json(json_file_path: str) -> None:
     """
     read json data

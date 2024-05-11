@@ -17,7 +17,6 @@ PERIOD = 1 * 365 + 183
 WEEKLY_52_BAR = 252
 
 
-
 candles_info = namedtuple(
     "candle_infp",
     [
@@ -29,6 +28,7 @@ candles_info = namedtuple(
     ],
 )
 
+
 def get_yf_data(ticket_name: str, start_date, end_date) -> dict:
     df = yf.download(ticket_name, start=start_date, end=end_date, auto_adjust=True)
     yahoo_response = df.to_dict()
@@ -39,7 +39,9 @@ def get_yf_data(ticket_name: str, start_date, end_date) -> dict:
     lows = list(yahoo_response["Low"].values())
     highs = list(yahoo_response["High"].values())
     volumes = list(yahoo_response["Volume"].values())
-    return  candles_info(opens=opens,closes=closes,lows=lows,highs=highs,volumes=volumes)
+    return candles_info(
+        opens=opens, closes=closes, lows=lows, highs=highs, volumes=volumes
+    )
 
 
 def load_prices_from_yahoo(ticket_name: str) -> candles_info:
@@ -70,16 +72,14 @@ def history_price_search(candles: candles_info) -> history_price_group:
     cal 52 weekly day high and low (210 kbars)
     """
 
-
     bars_high = candles.highs[-WEEKLY_52_BAR:]
     bars_low = candles.lows[-WEEKLY_52_BAR:]
     bars_close = candles.closes[-WEEKLY_52_BAR:]
     bars_open = candles.opens[-WEEKLY_52_BAR:]
 
-    
     weekly_52_high = max(bars_high)
     weekly_52_low = min(bars_low)
-    gap = round((( weekly_52_high - bars_close[-1] ) / weekly_52_high ) * 100, 2)
+    gap = round(((weekly_52_high - bars_close[-1]) / weekly_52_high) * 100, 2)
     break_high = True if weekly_52_high in bars_high[-5:] else False
     break_low = True if weekly_52_low in bars_low[-5:] else False
 

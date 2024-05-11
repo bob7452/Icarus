@@ -9,6 +9,7 @@ class market_group:
     def __repr__(self) -> str:
         return f"max_ath : {self.max_ath} , max_atl : {self.max_atl} , ath_count : {self.ath_count} , atl_count : {self.atl_count}"
 
+
 class industry_group:
     def __init__(self) -> None:
         self.stock = {}

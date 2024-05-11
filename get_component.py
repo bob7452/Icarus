@@ -10,7 +10,7 @@ import re
 from ftplib import FTP
 from io import StringIO
 import yfinance as yf
-from file_io import save_to_json,read_from_json
+from file_io import save_to_json, read_from_json
 
 UNKNOWN = "unknown"
 INFO_JSON_PATH = "stock_info.json"
@@ -172,8 +172,9 @@ def insert_sector(tickets: dict):
     for name in empty_list:
         del tickets[name]
 
-    save_to_json(data=tickets,json_file_path=INFO_JSON_PATH)
+    save_to_json(data=tickets, json_file_path=INFO_JSON_PATH)
     return tickets
+
 
 def load_component() -> dict:
     """
