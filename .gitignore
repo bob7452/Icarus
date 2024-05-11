@@ -1,2 +1,5 @@
 __pycache__
 stock_info.json
+stock_price_json_file.json
+ath_model_*.csv
+report/
