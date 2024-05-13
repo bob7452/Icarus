@@ -2,7 +2,7 @@ from get_component import load_component
 from download_data import load_prices_from_yahoo, history_price_search,candles_info
 from ath_model import market_group, industry_group
 import pandas as pd
-from datetime import datetime
+from datetime import datetime , timedelta
 import sys
 import json
 
@@ -168,12 +168,16 @@ if __name__ == "__main__":
     weekly = []
 
     while True:
+
         if start_date > datetime.today():
             break
  
         week_result = cal_data(tickets_info=tickets_info,start_date=start_date,all_data=all_data)
 
         weekly.append(pd.DataFrame(week_result,index=[0]))
+
+        offset +=7
+        start_date = start_date + timedelta(days=offset)
 
         
     file_name = "ath_model_" +"from 20200103 to 20240510" + ".csv"
