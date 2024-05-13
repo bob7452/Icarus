@@ -25,6 +25,7 @@ candles_info = namedtuple(
         "lows",
         "highs",
         "volumes",
+        "timestamps",
     ],
 )
 
@@ -40,19 +41,17 @@ def get_yf_data(ticket_name: str, start_date, end_date) -> dict:
     highs = list(yahoo_response["High"].values())
     volumes = list(yahoo_response["Volume"].values())
     return candles_info(
-        opens=opens, closes=closes, lows=lows, highs=highs, volumes=volumes
+        opens=opens, closes=closes, lows=lows, highs=highs, volumes=volumes,timestamps=timestamps
     )
 
 
-def load_prices_from_yahoo(ticket_name: str) -> candles_info:
+def load_prices_from_yahoo(ticket_name: str , start_date = date.today()-dt.timedelta(days=PERIOD),end_date = date.today()) -> candles_info:
     """
     load stocks price and save to json
     """
 
     print("*** Loading Stocks from Yahoo Finance ***")
-    today = date.today()
-    start_date = today - dt.timedelta(days=PERIOD)
-    return get_yf_data(ticket_name, start_date, today)
+    return get_yf_data(ticket_name, start_date, end_date)
 
 
 history_price_group = namedtuple(

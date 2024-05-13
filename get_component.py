@@ -11,6 +11,7 @@ from ftplib import FTP
 from io import StringIO
 import yfinance as yf
 from file_io import save_to_json, read_from_json
+import os
 
 UNKNOWN = "unknown"
 INFO_JSON_PATH = "stock_info.json"
@@ -152,11 +153,14 @@ def insert_sector(tickets: dict):
 
     empty_list = []
 
-    stock_info: dict = read_from_json(json_file_path=INFO_JSON_PATH)
+    if os.path.exists(INFO_JSON_PATH):
+        stock_info: dict = read_from_json(json_file_path=INFO_JSON_PATH)
+    else:
+        stock_info:dict = {}
 
     for idx, name in enumerate(tickets.keys()):
 
-        print(f"process ({idx+1}/{size})")
+        print(f"process sector data ({idx+1}/{size})")
 
         if name in stock_info:
             tickets[name]["sector"] = stock_info[name]["sector"]
