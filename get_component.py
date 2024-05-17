@@ -15,8 +15,11 @@ import os
 
 UNKNOWN = "unknown"
 INFO_JSON_PATH = "stock_info.json"
+MARKET_CAP_100E = 10_000_000_000
+MARKET_CAP_50E  = 5_000_000_000
+MARKET_CAP_10E  = 1_000_000_000
 
-Ticket = namedtuple("Ticket", ["ticket", "sector", "industry"])
+Ticket = namedtuple("Ticket", ["ticket", "sector", "industry", "marketCap"])
 
 
 def get_securities(url, ticker_pos=1, table_pos=1, sector_offset=1, industry_offset=1):
@@ -124,8 +127,10 @@ def load_ticker_info(name) -> Ticket:
     def get_info_from_dict(dict, key):
         value = dict[key] if key in dict else "n/a"
         # fix unicode
-        value = value.replace("\u2014", " ")
-        value = value.replace("â€”", " ")
+        if type(value) == str:
+            value = value.replace("\u2014", " ")
+            value = value.replace("â€”", " ")
+
         return value
 
     escaped_ticker = escape_ticker(name)
@@ -135,6 +140,7 @@ def load_ticker_info(name) -> Ticket:
         ticket=name,
         sector=get_info_from_dict(info.info, "sector"),
         industry=get_info_from_dict(info.info, "industry"),
+        marketCap=get_info_from_dict(info.info, "marketCap"),
     )
     # ticker_info = {
     #     "info": {
@@ -156,11 +162,11 @@ def insert_sector(tickets: dict):
     if os.path.exists(INFO_JSON_PATH):
         stock_info: dict = read_from_json(json_file_path=INFO_JSON_PATH)
     else:
-        stock_info:dict = {}
+        stock_info: dict = {}
 
     for idx, name in enumerate(tickets.keys()):
 
-        print(f"process sector data ({idx+1}/{size})")
+        print(f"process {name} info ({idx+1}/{size})")
 
         if name in stock_info:
             tickets[name]["sector"] = stock_info[name]["sector"]
@@ -170,7 +176,12 @@ def insert_sector(tickets: dict):
             tickets[name]["sector"] = ticket.sector
             tickets[name]["industry"] = ticket.industry
 
-            if ticket.sector == "n/a" or ticket.industry == "n/a":
+            if (
+                ticket.sector == "n/a"
+                or ticket.industry == "n/a"
+                or ticket.marketCap == "n/a"
+                or ticket.marketCap < MARKET_CAP_10E
+            ):
                 empty_list.append(name)
 
     for name in empty_list:

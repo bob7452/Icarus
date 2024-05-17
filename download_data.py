@@ -41,11 +41,20 @@ def get_yf_data(ticket_name: str, start_date, end_date) -> dict:
     highs = list(yahoo_response["High"].values())
     volumes = list(yahoo_response["Volume"].values())
     return candles_info(
-        opens=opens, closes=closes, lows=lows, highs=highs, volumes=volumes,timestamps=timestamps
+        opens=opens,
+        closes=closes,
+        lows=lows,
+        highs=highs,
+        volumes=volumes,
+        timestamps=timestamps,
     )
 
 
-def load_prices_from_yahoo(ticket_name: str , start_date = date.today()-dt.timedelta(days=PERIOD),end_date = date.today()) -> candles_info:
+def load_prices_from_yahoo(
+    ticket_name: str,
+    start_date=date.today() - dt.timedelta(days=PERIOD),
+    end_date=date.today(),
+) -> candles_info:
     """
     load stocks price and save to json
     """

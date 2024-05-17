@@ -4,3 +4,4 @@ stock_price_json_file.json
 ath_model_*.csv
 report/
 candles.json
+stock_info_*.json
