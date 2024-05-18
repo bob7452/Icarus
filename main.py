@@ -1,4 +1,4 @@
-from get_component import load_component
+from get_component import load_component,MARKET_CAP_10E,MARKET_CAP_100E,MARKET_CAP_50E
 from download_data import load_prices_from_yahoo, history_price_search, candles_info
 from ath_model import market_group, industry_group
 import pandas as pd
@@ -10,7 +10,7 @@ import os
 RANGE = 20
 
 START = datetime(year=2020, month=1, day=3,hour=8)
-END   = datetime(year=2024, month=5, day=10,hour=8)
+END   = datetime(year=2024, month=5, day=17,hour=8)
 LIMIT = datetime(year=2020,month=1,day=1,hour=8)
 
 
@@ -94,6 +94,7 @@ def cal_data(tickets_info: dict, start_date: datetime, all_data: dict):
     ath_list = {}
     ath_count = 0
     atl_count = 0
+    approach_high_count = 0
 
     allDF = pd.DataFrame()
     dfs = []
@@ -177,10 +178,10 @@ def slice_data(start_date: datetime, ticket_candles: dict):
         timestamps=[],
     )
 
-def cal_history_ath_model(load_new_data : bool = False):
+def cal_history_ath_model(load_new_data : bool = False , marketCap = MARKET_CAP_100E):
 
 
-    tickets_info = read_from_json("stock_info.json") if load_new_data == False else load_component()
+    tickets_info = read_from_json("stock_info.json") if load_new_data == False else load_component(marketCap=marketCap)
     all_data = read_from_json('candles.json') if load_new_data == False else load_candles(tickets_info=tickets_info)
 
     start_date = START
@@ -207,9 +208,9 @@ def cal_history_ath_model(load_new_data : bool = False):
     weekly = pd.concat(weekly, ignore_index=True)
     weekly.to_csv(file_name, index=False)
 
-def cal_this_weekly_ath_model():
+def cal_this_weekly_ath_model(marketCap = MARKET_CAP_10E):
 
-    tickets_info = load_component()
+    tickets_info = load_component(marketCap=marketCap)
     total_stocks = len(tickets_info.keys())
 
     market_result = market_group()
@@ -308,4 +309,5 @@ def cal_this_weekly_ath_model():
 
 
 if __name__ == "__main__":
-    cal_history_ath_model(load_new_data=False)
+    cal_history_ath_model(load_new_data=True,marketCap=MARKET_CAP_100E)
+    #cal_this_weekly_ath_model()

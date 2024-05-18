@@ -151,7 +151,7 @@ def load_ticker_info(name) -> Ticket:
     return ticket
 
 
-def insert_sector(tickets: dict):
+def insert_sector(tickets: dict,marketCap = MARKET_CAP_10E):
     """
     insert stock info to dict
     """
@@ -180,7 +180,7 @@ def insert_sector(tickets: dict):
                 ticket.sector == "n/a"
                 or ticket.industry == "n/a"
                 or ticket.marketCap == "n/a"
-                or ticket.marketCap < MARKET_CAP_10E
+                or ticket.marketCap < marketCap
             ):
                 empty_list.append(name)
 
@@ -191,8 +191,8 @@ def insert_sector(tickets: dict):
     return tickets
 
 
-def load_component() -> dict:
+def load_component(marketCap = MARKET_CAP_10E) -> dict:
     """
     return component stock info
     """
-    return insert_sector(tickets=get_tickers_from_nasdaq())
+    return insert_sector(tickets=get_tickers_from_nasdaq(),marketCap = marketCap)
