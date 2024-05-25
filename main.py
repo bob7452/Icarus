@@ -1,4 +1,4 @@
-from get_component import load_component,MARKET_CAP_10E,MARKET_CAP_100E,MARKET_CAP_50E
+from get_component import load_component,MARKET_CAP_10E,MARKET_CAP_100E,MARKET_CAP_50E,MARKET_CAP_1000E
 from download_data import load_prices_from_yahoo, history_price_search, candles_info
 from ath_model import market_group, industry_group
 import pandas as pd
@@ -309,5 +309,5 @@ def cal_this_weekly_ath_model(marketCap = MARKET_CAP_10E):
 
 
 if __name__ == "__main__":
-    cal_history_ath_model(load_new_data=True,marketCap=MARKET_CAP_100E)
-    #cal_this_weekly_ath_model()
+    #cal_history_ath_model(load_new_data=False,marketCap=MARKET_CAP_100E)
+    cal_this_weekly_ath_model(marketCap=MARKET_CAP_100E)
