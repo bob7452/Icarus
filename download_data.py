@@ -26,6 +26,7 @@ candles_info = namedtuple(
         "highs",
         "volumes",
         "timestamps",
+        "this_week",
     ],
 )
 
@@ -74,22 +75,27 @@ history_price_group = namedtuple(
     ],
 )
 
-
 def history_price_search(candles: candles_info) -> history_price_group:
     """
     cal 52 weekly day high and low (210 kbars)
     """
 
-    bars_high = candles.highs[-WEEKLY_52_BAR:]
-    bars_low = candles.lows[-WEEKLY_52_BAR:]
-    bars_close = candles.closes[-WEEKLY_52_BAR:]
-    bars_open = candles.opens[-WEEKLY_52_BAR:]
+    def is_high_low_between_this_week(day,start,end):
+            return True if start <= day <= end else False
+
+    bars_high : list  = candles.highs[-WEEKLY_52_BAR:]
+    bars_low : list = candles.lows[-WEEKLY_52_BAR:]
+    bars_close : list = candles.closes[-WEEKLY_52_BAR:]
+    bars_open : list = candles.opens[-WEEKLY_52_BAR:]
+    timestamp : list = candles.timestamps[-WEEKLY_52_BAR:]
 
     weekly_52_high = max(bars_high)
     weekly_52_low = min(bars_low)
+
     gap = round(((weekly_52_high - bars_close[-1]) / weekly_52_high) * 100, 2)
-    break_high = True if weekly_52_high in bars_high[-5:] else False
-    break_low = True if weekly_52_low in bars_low[-5:] else False
+
+    break_high = is_high_low_between_this_week(timestamp[bars_high.index(weekly_52_high)], candles.this_week[0],candles.this_week[1])
+    break_low =  is_high_low_between_this_week(timestamp[bars_low.index(weekly_52_low)], candles.this_week[0],candles.this_week[1])
 
     history = history_price_group(
         weekly_52_high=weekly_52_high,

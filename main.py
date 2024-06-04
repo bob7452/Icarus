@@ -7,10 +7,10 @@ from file_io import read_from_json ,save_to_json
 import os
 
 
-RANGE = 20
+RANGE = 10
 
 START = datetime(year=2020, month=1, day=3,hour=8)
-END   = datetime(year=2024, month=5, day=17,hour=8)
+END   = datetime(year=2024, month=5, day=31,hour=8)
 LIMIT = datetime(year=2020,month=1,day=1,hour=8)
 
 
@@ -109,8 +109,10 @@ def cal_data(tickets_info: dict, start_date: datetime, all_data: dict):
                 "approach_high": " ,".join(industry_data.approach_high),
                 "ath_count": industry_data.ath_count,
                 "atl_count": industry_data.atl_count,
+                "approach_count" : len(industry_data.approach_high),
                 "ath_ratio": str(round(industry_data.ath_count / len(industry_data.stock.keys()),2)),
                 "atl_ratio": str(round(industry_data.atl_count / len(industry_data.stock.keys()),2)),
+                "approach_ratio": str(round( len(industry_data.approach_high) / len(industry_data.stock.keys()),2)), 
                 "total_stocks" : len(industry_data.stock.keys()),
             }
         )
@@ -150,6 +152,23 @@ def cal_data(tickets_info: dict, start_date: datetime, all_data: dict):
     }
 
 
+
+def get_week_start_and_end(start_date_friday : datetime = None) -> tuple:
+
+    if  start_date_friday is None:
+        today = datetime.today()
+        monday = today - timedelta(days=today.weekday())  # Monday
+        friday = monday + timedelta(days=4)  # Friday
+
+        monday = monday + timedelta(hours=8)
+        friday = friday + timedelta(hours=8)
+    else:
+        monday = start_date_friday - timedelta(days=4) + timedelta(hours=8)
+        friday = start_date_friday
+
+    return (monday.timestamp(), friday.timestamp())
+
+
 def slice_data(start_date: datetime, ticket_candles: dict):
     start_date_timestamp = start_date.timestamp()
     index = 0
@@ -159,7 +178,6 @@ def slice_data(start_date: datetime, ticket_candles: dict):
         
         now_time= datetime.fromtimestamp(start_date_timestamp)
         if now_time < LIMIT:
-            print("here")
             return None
 
         if start_date_timestamp in ticket_candles["timestamps"]:
@@ -175,7 +193,8 @@ def slice_data(start_date: datetime, ticket_candles: dict):
         lows=ticket_candles["lows"][: index + 1],
         highs=ticket_candles["highs"][: index + 1],
         volumes=ticket_candles["volumes"][: index + 1],
-        timestamps=[],
+        timestamps=ticket_candles["timestamps"][: index + 1],
+        this_week=get_week_start_and_end(start_date_friday=start_date),
     )
 
 def cal_history_ath_model(load_new_data : bool = False , marketCap = MARKET_CAP_100E):
@@ -309,5 +328,5 @@ def cal_this_weekly_ath_model(marketCap = MARKET_CAP_10E):
 
 
 if __name__ == "__main__":
-    #cal_history_ath_model(load_new_data=False,marketCap=MARKET_CAP_100E)
-    cal_this_weekly_ath_model(marketCap=MARKET_CAP_100E)
+    cal_history_ath_model(load_new_data=False,marketCap=MARKET_CAP_100E)
+    #cal_this_weekly_ath_model(marketCap=MARKET_CAP_100E)
