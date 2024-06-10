@@ -10,7 +10,7 @@ import os
 RANGE = 10
 
 START = datetime(year=2020, month=1, day=3,hour=8)
-END   = datetime(year=2024, month=5, day=31,hour=8)
+END   = datetime(year=2024, month=6, day=7,hour=8)
 LIMIT = datetime(year=2020,month=1,day=1,hour=8)
 
 
@@ -45,6 +45,7 @@ def cal_data(tickets_info: dict, start_date: datetime, all_data: dict):
 
         
         if candles == None:
+            print("no slice")
             continue
 
         his_data = history_price_search(candles=candles)
@@ -208,6 +209,31 @@ def cal_this_weekly_ath_model(load_new_data = True,marketCap = MARKET_CAP_100E):
 
     print(weekly_result)
     
+def cal_history_ath_model(load_new_data : bool = True):
+
+
+    tickets_info = read_from_json("stock_info.json") #if load_new_data == False else load_component(marketCap=marketCap)
+    all_data = read_from_json('candles.json') #if load_new_data == False else load_candles(tickets_info=tickets_info)
+
+    day = START
+    history = []
+    while True:
+        if day > END:
+            break
+        weekly_result = cal_data(tickets_info=tickets_info,start_date=day,all_data=all_data)
+        df = pd.DataFrame(weekly_result, index=[0])
+        history.append(df)
+
+        day = day + timedelta(days=7)
+
+    allDF = pd.concat(history, ignore_index=True)
+    name  = START.strftime("%Y-%m-%d") + '_' + END.strftime("%Y-%m-%d") 
+    file_name = "ath_model_" + name + ".csv"
+    allDF.to_csv(file_name, index=False)
+
+
 
 if __name__ == "__main__":
-    cal_this_weekly_ath_model(marketCap=MARKET_CAP_100E)
+    #cal_this_weekly_ath_model(marketCap=MARKET_CAP_100E)
+
+    cal_history_ath_model()
