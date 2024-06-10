@@ -18,7 +18,19 @@ WEEKLY_52_BAR = 252
 
 
 candles_info = namedtuple(
-    "candle_infp",
+    "candle_info",
+    [
+        "opens",
+        "closes",
+        "lows",
+        "highs",
+        "volumes",
+        "timestamps",
+    ],
+)
+
+sliced_candle_info = namedtuple(
+    "sliced_candle_info",
     [
         "opens",
         "closes",
@@ -31,8 +43,9 @@ candles_info = namedtuple(
 )
 
 
-def get_yf_data(ticket_name: str, start_date, end_date) -> dict:
-    df = yf.download(ticket_name, start=start_date, end=end_date, auto_adjust=True)
+
+def get_yf_data(ticket_name: str) -> dict:
+    df = yf.download(ticket_name, period= "5y", auto_adjust=True)
     yahoo_response = df.to_dict()
     timestamps = list(yahoo_response["Open"].keys())
     timestamps = list(map(lambda timestamp: int(timestamp.timestamp()), timestamps))
@@ -53,15 +66,13 @@ def get_yf_data(ticket_name: str, start_date, end_date) -> dict:
 
 def load_prices_from_yahoo(
     ticket_name: str,
-    start_date=date.today() - dt.timedelta(days=PERIOD),
-    end_date=date.today(),
 ) -> candles_info:
     """
     load stocks price and save to json
     """
 
     print("*** Loading Stocks from Yahoo Finance ***")
-    return get_yf_data(ticket_name, start_date, end_date)
+    return get_yf_data(ticket_name,)
 
 
 history_price_group = namedtuple(
@@ -75,7 +86,7 @@ history_price_group = namedtuple(
     ],
 )
 
-def history_price_search(candles: candles_info) -> history_price_group:
+def history_price_search(candles: sliced_candle_info) -> history_price_group:
     """
     cal 52 weekly day high and low (210 kbars)
     """

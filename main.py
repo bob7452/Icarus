@@ -1,5 +1,5 @@
 from get_component import load_component,MARKET_CAP_10E,MARKET_CAP_100E,MARKET_CAP_50E,MARKET_CAP_1000E
-from download_data import load_prices_from_yahoo, history_price_search, candles_info
+from download_data import load_prices_from_yahoo, history_price_search, sliced_candle_info
 from ath_model import market_group, industry_group
 import pandas as pd
 from datetime import datetime, timedelta
@@ -19,13 +19,11 @@ def load_candles(tickets_info: dict) -> dict:
     total_stocks = len(tickets_info.keys())
 
     all_candles = {}
-    start_date = START - timedelta(days=252)
-    end_date = END
 
     for idx, name in enumerate(tickets_info.keys()):
         print(f"load candles ({idx+1}/{total_stocks})")
         all_candles[name] = load_prices_from_yahoo(
-            ticket_name=name, start_date=start_date, end_date=end_date
+            ticket_name=name,
         )._asdict()
 
     file_path = "candles.json"
@@ -94,7 +92,6 @@ def cal_data(tickets_info: dict, start_date: datetime, all_data: dict):
     ath_list = {}
     ath_count = 0
     atl_count = 0
-    approach_high_count = 0
 
     allDF = pd.DataFrame()
     dfs = []
@@ -156,7 +153,7 @@ def cal_data(tickets_info: dict, start_date: datetime, all_data: dict):
 def get_week_start_and_end(start_date_friday : datetime = None) -> tuple:
 
     if  start_date_friday is None:
-        today = datetime.today()
+        today = datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
         monday = today - timedelta(days=today.weekday())  # Monday
         friday = monday + timedelta(days=4)  # Friday
 
@@ -173,6 +170,8 @@ def slice_data(start_date: datetime, ticket_candles: dict):
     start_date_timestamp = start_date.timestamp()
     index = 0
 
+    # print(f"start date timestamp : {start_date_timestamp}")
+    # print(ticket_candles["timestamps"])
 
     while True:
         
@@ -187,7 +186,7 @@ def slice_data(start_date: datetime, ticket_candles: dict):
         else:
             start_date_timestamp -= 86400
 
-    return candles_info(
+    return sliced_candle_info(
         opens=ticket_candles["opens"][: index + 1],
         closes=ticket_candles["closes"][: index + 1],
         lows=ticket_candles["lows"][: index + 1],
@@ -197,136 +196,18 @@ def slice_data(start_date: datetime, ticket_candles: dict):
         this_week=get_week_start_and_end(start_date_friday=start_date),
     )
 
-def cal_history_ath_model(load_new_data : bool = False , marketCap = MARKET_CAP_100E):
+def cal_this_weekly_ath_model(load_new_data = True,marketCap = MARKET_CAP_100E):
+    week_day_start_end = get_week_start_and_end()
+    friday = datetime.fromtimestamp(week_day_start_end[1])
 
 
-    tickets_info = read_from_json("stock_info.json") if load_new_data == False else load_component(marketCap=marketCap)
-    all_data = read_from_json('candles.json') if load_new_data == False else load_candles(tickets_info=tickets_info)
+    tickets_info = read_from_json("stock_info.json") #if load_new_data == False else load_component(marketCap=marketCap)
+    all_data = read_from_json('candles.json') #if load_new_data == False else load_candles(tickets_info=tickets_info)
 
-    start_date = START
-    offset = 7
+    weekly_result = cal_data(tickets_info=tickets_info,start_date=friday,all_data=all_data)
 
-    weekly = []
-
-    while True:
-        if start_date > datetime.today():
-            break
-
-        print(start_date)
-        week_result = cal_data(
-            tickets_info=tickets_info, start_date=start_date, all_data=all_data
-        )
-
-        weekly.append(pd.DataFrame(week_result, index=[0]))
-        start_date = start_date + timedelta(days=offset)
-
-    start_str = START.strftime('%Y-%m-%d')
-    end_str = END.strftime('%Y-%m-%d')
-
-    file_name = "ath_model_" + f"from {start_str} to {end_str}" + ".csv"
-    weekly = pd.concat(weekly, ignore_index=True)
-    weekly.to_csv(file_name, index=False)
-
-def cal_this_weekly_ath_model(marketCap = MARKET_CAP_10E):
-
-    tickets_info = load_component(marketCap=marketCap)
-    total_stocks = len(tickets_info.keys())
-
-    market_result = market_group()
-    for idx, ticket_name in enumerate(tickets_info.keys()):
-        print(f"cal process ({idx+1}/{total_stocks})")
-
-        candles = load_prices_from_yahoo(ticket_name=ticket_name)
-        his_data = history_price_search(candles=candles)
-
-        if his_data is None:
-            continue
-
-        print("ticket name ", ticket_name)
-        print(his_data)
-
-        industry = tickets_info[ticket_name]["industry"]
-
-        if industry not in market_result.industry:
-            market_result.industry[industry] = industry_group()
-
-        # class industry_group:
-        #     stock:dict = {}
-        #     ath_count :int = 0
-        #     atl_count :int = 0
-        #     break_high_group : list = []
-        #     break_low_group : list = []
-        #     approach_high : list = []
-
-        market_result.industry[industry].stock[ticket_name] = his_data
-
-        if his_data.break_high:
-            market_result.industry[industry].ath_count += 1
-            market_result.industry[industry].break_high_group.append(ticket_name)
-
-        if his_data.break_low:
-            market_result.industry[industry].atl_count += 1
-            market_result.industry[industry].break_low_group.append(ticket_name)
-
-        if abs(his_data.gap_from_the_last_high) < RANGE:
-            market_result.industry[industry].approach_high.append(ticket_name)
-
-    # class market_group:
-    #     industry:dict = {}
-    #     max_ath:str ="n/a"
-    #     max_atl:str ="n/a"
-    #     ath_count:int = 0
-    #     atl_count:int = 0
-
-    atl_list = {}
-    ath_list = {}
-    ath_count = 0
-    atl_count = 0
-
-    allDF = pd.DataFrame()
-    dfs = []
-
-    for industry_name, industry_data in market_result.industry.items():
-        data = {}
-        data["industry_name"] = industry_name
-        data.update(
-            {
-                "break_high_group": " ,".join(industry_data.break_high_group),
-                "break_low_group": " ,".join(industry_data.break_low_group),
-                "approach_high": " ,".join(industry_data.approach_high),
-                "ath_count": industry_data.ath_count,
-                "atl_count": industry_data.atl_count,
-            }
-        )
-
-        df = pd.DataFrame(data, index=[0])
-        dfs.append(df)
-
-        ath_list[industry_name] = industry_data.ath_count
-        atl_list[industry_name] = industry_data.atl_count
-
-        ath_count += industry_data.ath_count
-        atl_count += industry_data.atl_count
-
-    allDF = pd.concat(dfs, ignore_index=True)
-
-    now = datetime.now()
-    today = now.strftime("%Y-%m-%d")
-    file_name = "ath_model_" + today + ".csv"
-    print(today)
-    allDF.to_csv(file_name, index=False)
-
-    max_ath = max(ath_list, key=ath_list.get)
-    max_atl = max(atl_list, key=atl_list.get)
-
-    market_result.max_ath = max_ath
-    market_result.max_atl = max_atl
-    market_result.ath_count = ath_count
-    market_result.atl_count = atl_count
-
-    print(market_result)
-
+    print(weekly_result)
+    
 
 if __name__ == "__main__":
-    cal_history_ath_model(load_new_data=False,marketCap=MARKET_CAP_100E)
-    #cal_this_weekly_ath_model(marketCap=MARKET_CAP_100E)
+    cal_this_weekly_ath_model(marketCap=MARKET_CAP_100E)
