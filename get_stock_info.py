@@ -1,11 +1,9 @@
 """
-File : get_component.py
+File : get_stock_info.py
 load s&p 500 and nasdaq companies
 """
 
 from collections import namedtuple
-import requests
-import bs4 as bs
 import re
 from ftplib import FTP
 from io import StringIO
@@ -14,7 +12,10 @@ from file_io import save_to_json, read_from_json
 import os
 
 UNKNOWN = "unknown"
-INFO_JSON_PATH = "stock_info.json"
+
+STOCK_INFO_JSON_PATH = "stock_info.json"
+STOCK_PRICE_JSON_FILE = "candles.json"
+
 MARKET_CAP_1000E = 100_000_000_000
 MARKET_CAP_100E = 10_000_000_000
 MARKET_CAP_50E  = 5_000_000_000
@@ -22,53 +23,7 @@ MARKET_CAP_10E  = 1_000_000_000
 
 Ticket = namedtuple("Ticket", ["ticket", "sector", "industry", "marketCap"])
 
-
-def get_securities(url, ticker_pos=1, table_pos=1, sector_offset=1, industry_offset=1):
-    """
-    parsing components from wiki
-    """
-    resp = requests.get(url, timeout=5)
-    soup = bs.BeautifulSoup(resp.text, "lxml")
-    table = soup.findAll("table", {"class": "wikitable sortable"})[table_pos - 1]
-    secs = {}
-    for row in table.findAll("tr")[table_pos:]:
-        sec = Ticket(
-            ticket=row.findAll("td")[ticker_pos - 1].text.strip(),
-            sector=row.findAll("td")[ticker_pos - 1 + sector_offset].text.strip(),
-            industry=row.findAll("td")[
-                ticker_pos - 1 + sector_offset + industry_offset
-            ].text.strip(),
-        )
-        secs[sec.ticket] = sec
-    return secs
-
-
-def get_tickers_from_wikipedia():
-    """
-    return components list
-    """
-    tickers = {}
-    tickers.update(
-        get_securities(
-            "http://en.wikipedia.org/wiki/List_of_S%26P_500_companies",
-            sector_offset=3,
-        )
-    )
-    tickers.update(
-        get_securities(
-            "https://en.wikipedia.org/wiki/List_of_S%26P_400_companies",
-            2,
-        )
-    )
-    tickers.update(
-        get_securities(
-            "https://en.wikipedia.org/wiki/List_of_S%26P_600_companies",
-            2,
-        )
-    )
-    return tickers
-
-
+@staticmethod
 def get_tickers_from_nasdaq() -> dict:
 
     def exchange_from_symbol(symbol):
@@ -115,13 +70,14 @@ def get_tickers_from_nasdaq() -> dict:
             sec["sector"] = UNKNOWN
             sec["industry"] = UNKNOWN
             sec["universe"] = exchange_from_symbol(values[exchange_column])
+            sec["marketCap"] = UNKNOWN
             tickers[sec["ticker"]] = sec
 
     return tickers
 
-
-def load_ticker_info(name) -> Ticket:
-
+@staticmethod
+def search_ticker_info(name) -> Ticket:
+    
     def escape_ticker(ticker):
         return ticker.replace(".", "-")
 
@@ -143,25 +99,29 @@ def load_ticker_info(name) -> Ticket:
         industry=get_info_from_dict(info.info, "industry"),
         marketCap=get_info_from_dict(info.info, "marketCap"),
     )
-    # ticker_info = {
-    #     "info": {
-    #         "industry": get_info_from_dict(info.info, "industry"),
-    #         "sector": get_info_from_dict(info.info, "sector")
-    #     }
-    # }
+
     return ticket
 
 
-def insert_sector(tickets: dict,marketCap = MARKET_CAP_10E):
+def get_total_stocks_basic_info(marketCap = MARKET_CAP_10E) -> dict:
     """
-    insert stock info to dict
+    input : 
+        1. marketCap : Set minimum stock market capitalization limit.
+
+    return : 
+        stock info
+        1. marketCap
+        2. Sector
+        3. Industry
     """
+    tickets=get_tickers_from_nasdaq()
+
     size = len(tickets)
 
     empty_list = []
 
-    if os.path.exists(INFO_JSON_PATH):
-        stock_info: dict = read_from_json(json_file_path=INFO_JSON_PATH)
+    if os.path.exists(STOCK_INFO_JSON_PATH):
+        stock_info: dict = read_from_json(json_file_path=STOCK_INFO_JSON_PATH)
     else:
         stock_info: dict = {}
 
@@ -172,10 +132,12 @@ def insert_sector(tickets: dict,marketCap = MARKET_CAP_10E):
         if name in stock_info:
             tickets[name]["sector"] = stock_info[name]["sector"]
             tickets[name]["industry"] = stock_info[name]["industry"]
+            tickets[name]["marketCap"] = stock_info[name]["marketCap"]
         else:
-            ticket = load_ticker_info(name=name)
+            ticket = search_ticker_info(name=name)
             tickets[name]["sector"] = ticket.sector
             tickets[name]["industry"] = ticket.industry
+            tickets[name]["marketCap"] = ticket.marketCap
 
             if (
                 ticket.sector == "n/a"
@@ -188,12 +150,71 @@ def insert_sector(tickets: dict,marketCap = MARKET_CAP_10E):
     for name in empty_list:
         del tickets[name]
 
-    save_to_json(data=tickets, json_file_path=INFO_JSON_PATH)
+    save_to_json(data=tickets, json_file_path=STOCK_INFO_JSON_PATH)
+
     return tickets
 
 
-def load_component(marketCap = MARKET_CAP_10E) -> dict:
+import yfinance as yf
+from collections import namedtuple
+from file_io import save_to_json
+
+
+
+candles_info = namedtuple(
+    "candle_info",
+    [
+        "opens",
+        "closes",
+        "lows",
+        "highs",
+        "volumes",
+        "timestamps",
+    ],
+)
+
+
+@staticmethod
+def load_prices_from_yahoo(
+    ticket_name: str,
+) -> candles_info:
     """
-    return component stock info
+    load stocks price and save to json
     """
-    return insert_sector(tickets=get_tickers_from_nasdaq(),marketCap = marketCap)
+    df = yf.download(ticket_name, period= "5y", auto_adjust=True)
+    yahoo_response = df.to_dict()
+    timestamps = list(yahoo_response["Open"].keys())
+    timestamps = list(map(lambda timestamp: int(timestamp.timestamp()), timestamps))
+    opens = list(yahoo_response["Open"].values())
+    closes = list(yahoo_response["Close"].values())
+    lows = list(yahoo_response["Low"].values())
+    highs = list(yahoo_response["High"].values())
+    volumes = list(yahoo_response["Volume"].values())
+    return candles_info(
+        opens=opens,
+        closes=closes,
+        lows=lows,
+        highs=highs,
+        volumes=volumes,
+        timestamps=timestamps,
+    )
+    
+
+def get_stock_history_price_data(tickets_info: dict) -> dict:
+    '''
+    download stock histroy price data (days)
+    '''
+
+    total_stocks = len(tickets_info.keys())
+
+    all_candles = {}
+
+    for idx, name in enumerate(tickets_info.keys()):
+        print(f"load candles ({idx+1}/{total_stocks})")
+        all_candles[name] = load_prices_from_yahoo(
+            ticket_name=name,
+        )._asdict()
+
+    file_path = "candles.json"
+    save_to_json(data=all_candles,json_file_path=file_path)
+    return all_candles
