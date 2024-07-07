@@ -1,3 +1,30 @@
+from collections import namedtuple
+
+history_price_group = namedtuple(
+    "history_price_group",
+    [
+        "weekly_52_high",
+        "weekly_52_low",
+        "gap_from_the_last_high",
+        "break_high",
+        "break_low",
+        "weekly_change"
+    ],
+)
+
+sliced_candle_info = namedtuple(
+    "sliced_candle_info",
+    [
+        "opens",
+        "closes",
+        "lows",
+        "highs",
+        "volumes",
+        "timestamps",
+        "this_week",
+    ],
+)
+
 class market_group:
     def __init__(self) -> None:
         self.industry = {}
@@ -15,6 +42,7 @@ class industry_group:
         self.stock = {}
         self.ath_count = 0
         self.atl_count = 0
+        self.week_change_avg = 0
         self.break_high_group = []
         self.break_low_group = []
         self.approach_high = []

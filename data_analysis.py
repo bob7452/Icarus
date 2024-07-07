@@ -3,8 +3,7 @@ File : data analysis.py
 process data
 '''
 
-from collections import namedtuple
-from dataclasses import dataclass
+from common_data_type import industry_group,market_group,sliced_candle_info,history_price_group
 from datetime import datetime , timedelta
 from file_io import read_from_json
 from get_stock_info import get_stock_history_price_data , get_total_stocks_basic_info , MARKET_CAP_100E , MARKET_CAP_10E , STOCK_INFO_JSON_PATH , STOCK_PRICE_JSON_FILE
@@ -18,46 +17,29 @@ WEEKLY_52_BAR = 252
 LIMIT = datetime(year=2020,month=1,day=1,hour=8)
 RANGE = 10
 
-history_price_group = namedtuple(
-    "history_price_group",
-    [
-        "weekly_52_high",
-        "weekly_52_low",
-        "gap_from_the_last_high",
-        "break_high",
-        "break_low",
-    ],
-)
+@staticmethod
+def week_change(candles:sliced_candle_info) -> float:
+    index = 0
+    firday_last_week_timestamp = candles.this_week[1] - (86400 * 7)
+    limit = datetime.fromtimestamp(candles.this_week[0] - (86400 * 7))
+    
+    while True:
+        now_date = datetime.fromtimestamp(firday_last_week_timestamp)
 
-sliced_candle_info = namedtuple(
-    "sliced_candle_info",
-    [
-        "opens",
-        "closes",
-        "lows",
-        "highs",
-        "volumes",
-        "timestamps",
-        "this_week",
-    ],
-)
+        if now_date < limit:
+            print("Noooooo Find")
+            return 0
 
-class industry_group:
-    def __init__(self) -> None:
-        self.stock:dict = {}
-        self.ath_count :int = 0
-        self.atl_count :int = 0
-        self.break_high_group : list = []
-        self.break_low_group : list = []
-        self.approach_high : list = []
+        if firday_last_week_timestamp in candles.timestamps:
+            index = candles.timestamps.index(firday_last_week_timestamp)
+            print(f"index = {index} , datetime = {datetime.fromtimestamp(firday_last_week_timestamp)}")
+            break
+        else:
+            firday_last_week_timestamp -= 86400
 
-class market_group:
-    def __init__(self) -> None:
-        self.industry:dict = {}
-        self.max_ath:str ="n/a"
-        self.max_atl:str ="n/a"
-        self.ath_count:int = 0
-        self.atl_count:int = 0
+    return round(( (candles.closes[-1] /candles.closes[index]) -1 ) * 100 ,2)
+
+    
 
 @staticmethod
 def history_price_filter(candles: sliced_candle_info) -> history_price_group:
@@ -88,6 +70,7 @@ def history_price_filter(candles: sliced_candle_info) -> history_price_group:
         gap_from_the_last_high=gap,
         break_high=break_high,
         break_low=break_low,
+        weekly_change=week_change(candles=candles),
     )
 
     if break_high and break_low:
@@ -147,6 +130,8 @@ def cal_data(tickets_info: dict, start_date: datetime, all_data: dict , range = 
         if abs(his_data.gap_from_the_last_high) < range:
             market_result.industry[industry].approach_high.append(ticket_name)
 
+        market_result.industry[industry].week_change_avg += his_data.weekly_change
+
     # class market_group:
     #     industry:dict = {}
     #     max_ath:str ="n/a"
@@ -176,6 +161,7 @@ def cal_data(tickets_info: dict, start_date: datetime, all_data: dict , range = 
                 "ath_ratio": str(round(industry_data.ath_count / len(industry_data.stock.keys()),2)),
                 "atl_ratio": str(round(industry_data.atl_count / len(industry_data.stock.keys()),2)),
                 "approach_ratio": str(round( len(industry_data.approach_high) / len(industry_data.stock.keys()),2)), 
+                "weekly_chagne" : str(round( industry_data.week_change_avg / len(industry_data.stock.keys()),2)), 
                 "total_stocks" : len(industry_data.stock.keys()),
             }
         )
@@ -234,13 +220,13 @@ def get_week_start_and_end(start_date_friday : datetime = None) -> tuple:
 
 @staticmethod
 def slice_data(start_date: datetime, ticket_candles: dict):
-    start_date_timestamp = start_date.timestamp()
-    index = 0
 
+    index = 0
+    start_date_timestamp = start_date.timestamp()
     while True:
         
-        now_time= datetime.fromtimestamp(start_date_timestamp)
-        if now_time < LIMIT:
+        now_date = datetime.fromtimestamp(start_date_timestamp)
+        if now_date < LIMIT:
             return None
 
         if start_date_timestamp in ticket_candles["timestamps"]:
