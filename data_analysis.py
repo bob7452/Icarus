@@ -14,7 +14,7 @@ import os
 
 PERIOD = 1 * 365 + 183
 WEEKLY_52_BAR = 252
-LIMIT = datetime(year=2020,month=1,day=1,hour=8)
+LIMIT = datetime(year=2019,month=12,day=27,hour=8)
 RANGE = 10
 
 @staticmethod
@@ -194,11 +194,7 @@ def cal_data(tickets_info: dict, start_date: datetime, all_data: dict , range = 
     date = start_date.strftime("%Y-%m-%d")
     print(f"{date} : {market_result}")
 
-    return {
-        "start_date": date,
-        "ath_count": ath_count,
-        "atl_count": atl_count,
-    }
+    return market_result
 
 
 
@@ -266,6 +262,7 @@ class Ath_model:
 
         day = self.start_date
         history = []
+        weekly_list = []
         while True:
             if day > self.end_date:
                 break
@@ -273,8 +270,19 @@ class Ath_model:
                                      start_date=day,
                                      all_data=self.stocks_price_data,
                                      range=self.range)
-            df = pd.DataFrame(weekly_result, index=[0])
+            
+            weekly_list.append((day.strftime("%Y-%m-%d"),weekly_result))
+                    
+            tmp = {
+                "start_date": day.strftime("%Y-%m-%d"),
+                "ath_count": weekly_result.ath_count,
+                "atl_count": weekly_result.atl_count,
+            }
+
+
+            df = pd.DataFrame(tmp, index=[0])
             history.append(df)
+
 
             day = day + timedelta(days=7)
 
@@ -282,3 +290,39 @@ class Ath_model:
         name  = self.start_date.strftime("%Y-%m-%d") + '_' + self.end_date.strftime("%Y-%m-%d") 
         file_name = "ath_model_" + name + ".csv"
         allDF.to_csv(file_name, index=False)
+
+
+        classic = {}
+        for daystring , weekly_result in weekly_list:
+            
+            for industry_name, industry_data in weekly_result.industry.items():
+                
+                if industry_name not in classic:
+                    classic[industry_name] = []
+            
+
+                tmp = {
+                    "datetime" : daystring,
+                    "break_high_group": " ,".join(industry_data.break_high_group),
+                    "break_low_group": " ,".join(industry_data.break_low_group),
+                    "approach_high": " ,".join(industry_data.approach_high),
+                    "ath_count": industry_data.ath_count,
+                    "atl_count": industry_data.atl_count,
+                    "approach_count" : len(industry_data.approach_high),
+                    "ath_ratio": str(round(industry_data.ath_count / len(industry_data.stock.keys()),2)),
+                    "atl_ratio": str(round(industry_data.atl_count / len(industry_data.stock.keys()),2)),
+                    "approach_ratio": str(round( len(industry_data.approach_high) / len(industry_data.stock.keys()),2)), 
+                    "weekly_chagne" : str(round( industry_data.week_change_avg / len(industry_data.stock.keys()),2)), 
+                    "total_stocks" : len(industry_data.stock.keys()),
+                }
+                
+                df = pd.DataFrame(tmp, index=[0])
+                classic[industry_name].append(df)
+
+        for industry_name, data in classic.items():
+            print(data)
+            ALLDF = pd.concat(data, ignore_index=True)
+            name  = industry_name
+            file_name = "ath_model_" + name + ".csv"
+            file_name = os.path.join("classic",file_name)
+            ALLDF.to_csv(file_name, index=False)
