@@ -8,6 +8,7 @@ history_price_group = namedtuple(
         "gap_from_the_last_high",
         "break_high",
         "break_low",
+        "big_volume",
         "weekly_change",
         "yearly_change"
     ],
@@ -23,6 +24,7 @@ sliced_candle_info = namedtuple(
         "volumes",
         "timestamps",
         "this_week",
+        "today",
     ],
 )
 

@@ -21,7 +21,7 @@ MARKET_CAP_100E = 10_000_000_000
 MARKET_CAP_50E  = 5_000_000_000
 MARKET_CAP_10E  = 1_000_000_000
 
-Ticket = namedtuple("Ticket", ["ticket", "sector", "industry", "marketCap"])
+Ticket = namedtuple("Ticket", ["ticket", "sector", "industry", "marketCap",])
 
 @staticmethod
 def get_tickers_from_nasdaq() -> dict:
@@ -103,7 +103,7 @@ def search_ticker_info(name) -> Ticket:
     return ticket
 
 
-def get_total_stocks_basic_info(marketCap = MARKET_CAP_10E) -> dict:
+def get_total_stocks_basic_info(marketCap = MARKET_CAP_10E,reuse_data = False) -> dict:
     """
     input : 
         1. marketCap : Set minimum stock market capitalization limit.
@@ -114,38 +114,31 @@ def get_total_stocks_basic_info(marketCap = MARKET_CAP_10E) -> dict:
         2. Sector
         3. Industry
     """
+    
+    if reuse_data:
+        return read_from_json(STOCK_INFO_JSON_PATH) 
+
     tickets=get_tickers_from_nasdaq()
 
     size = len(tickets)
 
     empty_list = []
 
-    if os.path.exists(STOCK_INFO_JSON_PATH):
-        stock_info: dict = read_from_json(json_file_path=STOCK_INFO_JSON_PATH)
-    else:
-        stock_info: dict = {}
-
     for idx, name in enumerate(tickets.keys()):
 
         print(f"process {name} info ({idx+1}/{size})")
 
-        if name in stock_info:
-            tickets[name]["sector"] = stock_info[name]["sector"]
-            tickets[name]["industry"] = stock_info[name]["industry"]
-            tickets[name]["marketCap"] = stock_info[name]["marketCap"]
-        else:
-            ticket = search_ticker_info(name=name)
-            tickets[name]["sector"] = ticket.sector
-            tickets[name]["industry"] = ticket.industry
-            tickets[name]["marketCap"] = ticket.marketCap
-
-            if (
-                ticket.sector == "n/a"
-                or ticket.industry == "n/a"
-                or ticket.marketCap == "n/a"
-                or ticket.marketCap < marketCap
-            ):
-                empty_list.append(name)
+        ticket = search_ticker_info(name=name)
+        tickets[name]["sector"] = ticket.sector
+        tickets[name]["industry"] = ticket.industry
+        tickets[name]["marketCap"] = ticket.marketCap
+        if (
+            ticket.sector == "n/a"
+            or ticket.industry == "n/a"
+            or ticket.marketCap == "n/a"
+            or ticket.marketCap < marketCap
+        ):
+            empty_list.append(name)
 
     for name in empty_list:
         del tickets[name]
@@ -181,7 +174,7 @@ def load_prices_from_yahoo(
     """
     load stocks price and save to json
     """
-    df = yf.download(ticket_name, period= "5y", auto_adjust=True)
+    df = yf.download(ticket_name, period= "1y", auto_adjust=True)
     yahoo_response = df.to_dict()
     timestamps = list(yahoo_response["Open"].keys())
     timestamps = list(map(lambda timestamp: int(timestamp.timestamp()), timestamps))
@@ -200,10 +193,13 @@ def load_prices_from_yahoo(
     )
     
 
-def get_stock_history_price_data(tickets_info: dict) -> dict:
+def get_stock_history_price_data(tickets_info: dict,reuse_data = False) -> dict:
     '''
     download stock histroy price data (days)
     '''
+
+    if reuse_data:
+        return read_from_json(STOCK_PRICE_JSON_FILE)
 
     total_stocks = len(tickets_info.keys())
 

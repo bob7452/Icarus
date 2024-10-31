@@ -39,7 +39,11 @@ def week_change(candles:sliced_candle_info) -> float:
 
     return round(( (candles.closes[-1] /candles.closes[index]) -1 ) * 100 ,2)
 
-    
+def moving_average_data(data:list,moving_weight : int = 5) -> list:
+    df = pd.DataFrame(data,columns=['Price'])
+    df[f'MA{moving_weight}'] = df['Price'].rolling(window=moving_weight).mean().fillna(0)
+    ma_list = df[f'MA{moving_weight}'].tolist()
+    return ma_list
 
 @staticmethod
 def history_price_filter(candles: sliced_candle_info) -> history_price_group:
@@ -54,15 +58,21 @@ def history_price_filter(candles: sliced_candle_info) -> history_price_group:
     bars_low : list = candles.lows[-WEEKLY_52_BAR:]
     bars_close : list = candles.closes[-WEEKLY_52_BAR:]
     bars_open : list = candles.opens[-WEEKLY_52_BAR:]
+    volume : list = candles.volumes[-WEEKLY_52_BAR:]
     timestamp : list = candles.timestamps[-WEEKLY_52_BAR:]
 
-    weekly_52_high = max(bars_high)
-    weekly_52_low = min(bars_low)
+    weekly_52_high = max(bars_close)
+    weekly_52_low = min(bars_close)
 
     gap = round(((weekly_52_high - bars_close[-1]) / weekly_52_high) * 100, 2)
+    ma5 = moving_average_data(volume)
+    ma20 = moving_average_data(volume,20)
 
-    break_high = is_high_low_between_this_week(timestamp[bars_high.index(weekly_52_high)], candles.this_week[0],candles.this_week[1])
-    break_low =  is_high_low_between_this_week(timestamp[bars_low.index(weekly_52_low)], candles.this_week[0],candles.this_week[1])
+    # break_high = is_high_low_between_this_week(timestamp[bars_close.index(weekly_52_high)], candles.this_week[0],candles.this_week[1])
+    # break_low =  is_high_low_between_this_week(timestamp[bars_close.index(weekly_52_low)], candles.this_week[0],candles.this_week[1])
+    break_high = timestamp[bars_close.index(weekly_52_high)] == candles.today
+    break_low = timestamp[bars_close.index(weekly_52_low)] == candles.today
+    big_volume = volume[-1] > ma5[-1] and volume[-1] > ma20[-1]
 
     history = history_price_group(
         weekly_52_high=weekly_52_high,
@@ -70,6 +80,7 @@ def history_price_filter(candles: sliced_candle_info) -> history_price_group:
         gap_from_the_last_high=gap,
         break_high=break_high,
         break_low=break_low,
+        big_volume = big_volume,
         weekly_change=week_change(candles=candles),
         yearly_change=round(((bars_close[-1] /bars_close[0]) -1 ) * 100 ,2),
     )
@@ -251,6 +262,7 @@ def slice_data(start_date: datetime, ticket_candles: dict):
         volumes=ticket_candles["volumes"][: index + 1],
         timestamps=ticket_candles["timestamps"][: index + 1],
         this_week=get_week_start_and_end(start_date_friday=start_date),
+        today=start_date.timestamp(),
     )
 
 def gen_rs_report(start_date,weekly_result:market_group,gap_range = 10):
@@ -265,6 +277,7 @@ def gen_rs_report(start_date,weekly_result:market_group,gap_range = 10):
             close_to_high = False
             powerful_than_spy = False
             group_powerful_than_spy = False
+            breakout_with_big_volume = False
 
             if stock_history_data.yearly_change < spy_data.yearly_change:
                 continue
@@ -278,8 +291,12 @@ def gen_rs_report(start_date,weekly_result:market_group,gap_range = 10):
             if stock_history_data.gap_from_the_last_high < gap_range:
                 close_to_high = True
                 
+            if stock_history_data.big_volume and stock_history_data.break_high:
+                breakout_with_big_volume = True
+                
+
             norm = abs(stock_history_data.yearly_change - spy_data.yearly_change)
-            rs_list[stock_name] = (norm,close_to_high,powerful_than_spy,group_powerful_than_spy)
+            rs_list[stock_name] = (norm,close_to_high,powerful_than_spy,group_powerful_than_spy,breakout_with_big_volume)
 
     rs_dataframe = []
     
@@ -288,7 +305,9 @@ def gen_rs_report(start_date,weekly_result:market_group,gap_range = 10):
                "rs" : data[0],
                f"close_to_high_{gap_range}%" : data[1],
                "powerful_than_spy" : data[2],
-               "group_powerful_than_spy" : data[3]}
+               "group_powerful_than_spy" : data[3],
+               "breakout_with_big_volume" : data[4],
+               }
         df = pd.DataFrame(tmp, index=[0])
         rs_dataframe.append(df)
 
@@ -312,8 +331,8 @@ class Ath_model:
     '''
 
     def __init__(self,start_date : datetime , end_date : datetime , marketCap = MARKET_CAP_100E ,gap_to_high_range = 10 , reuse_data = False) -> None:
-        self.stocks_info : dict = read_from_json(STOCK_INFO_JSON_PATH) if reuse_data else get_total_stocks_basic_info(marketCap=marketCap)
-        self.stocks_price_data : dict = read_from_json(STOCK_PRICE_JSON_FILE) if reuse_data else get_stock_history_price_data(self.stocks_info)
+        self.stocks_info : dict = get_total_stocks_basic_info(marketCap=marketCap,reuse_data=reuse_data)
+        self.stocks_price_data : dict = get_stock_history_price_data(self.stocks_info,reuse_data=reuse_data)
         self.start_date = start_date
         self.end_date = end_date    
         self.range = gap_to_high_range
