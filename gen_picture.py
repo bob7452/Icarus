@@ -3,7 +3,9 @@ import mplfinance as mpf
 import pandas as pd
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
+import matplotlib
 import os
+import gc
 import shutil
 
 def gen_pic(save_path,ticker):
@@ -37,6 +39,11 @@ def gen_pic(save_path,ticker):
     # Save the figure with higher resolution (e.g., 300 DPI)
     fig.savefig(save_path, dpi=300)
 
+    fig.clf()
+    plt.close(fig)
+    del data, data_filtered, fig, ax, lines
+    gc.collect()
+
 
 def copy_png_files(src_dir, dest_dir):
     # 如果目的地資料夾不存在，則創建它
@@ -57,6 +64,8 @@ def copy_png_files(src_dir, dest_dir):
                 print(f"Copied: {src_file_path} -> {dest_file_path}")
 
 if __name__ == "__main__":
+    matplotlib.use('Agg')  # Use a non-interactive backend
+
     report_loc = os.path.dirname(__file__)
     report_loc = os.path.join(report_loc,"report")
 

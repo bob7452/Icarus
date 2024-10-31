@@ -6,3 +6,4 @@ report/
 candles.json
 stock_info_*.json
 *.png
+*.csv

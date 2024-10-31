@@ -8,7 +8,8 @@ history_price_group = namedtuple(
         "gap_from_the_last_high",
         "break_high",
         "break_low",
-        "weekly_change"
+        "weekly_change",
+        "yearly_change"
     ],
 )
 

@@ -6,9 +6,9 @@ process data
 from common_data_type import industry_group,market_group,sliced_candle_info,history_price_group
 from datetime import datetime , timedelta
 from file_io import read_from_json
-from get_stock_info import get_stock_history_price_data , get_total_stocks_basic_info , MARKET_CAP_100E , MARKET_CAP_10E , STOCK_INFO_JSON_PATH , STOCK_PRICE_JSON_FILE
-
+from get_stock_info import load_prices_from_yahoo , get_stock_history_price_data , get_total_stocks_basic_info , MARKET_CAP_100E , MARKET_CAP_10E , STOCK_INFO_JSON_PATH , STOCK_PRICE_JSON_FILE
 import pandas as pd
+import numpy as np
 import os
 
 
@@ -71,6 +71,7 @@ def history_price_filter(candles: sliced_candle_info) -> history_price_group:
         break_high=break_high,
         break_low=break_low,
         weekly_change=week_change(candles=candles),
+        yearly_change=round(((bars_close[-1] /bars_close[0]) -1 ) * 100 ,2),
     )
 
     if break_high and break_low:
@@ -100,7 +101,7 @@ def cal_data(tickets_info: dict, start_date: datetime, all_data: dict , range = 
 
         if his_data is None:
             continue
-
+    
         print("ticket name ", ticket_name)
         print(his_data)
 
@@ -127,7 +128,7 @@ def cal_data(tickets_info: dict, start_date: datetime, all_data: dict , range = 
             market_result.industry[industry].atl_count += 1
             market_result.industry[industry].break_low_group.append(ticket_name)
 
-        if abs(his_data.gap_from_the_last_high) < range:
+        if abs(his_data.gap_from_the_last_high) <= range:
             market_result.industry[industry].approach_high.append(ticket_name)
 
         market_result.industry[industry].week_change_avg += his_data.weekly_change
@@ -194,14 +195,24 @@ def cal_data(tickets_info: dict, start_date: datetime, all_data: dict , range = 
     date = start_date.strftime("%Y-%m-%d")
     print(f"{date} : {market_result}")
 
-    return market_result
+    return market_result  
 
+def cal_spy(start_date: datetime) -> history_price_group:
 
+    ticket_candles = load_prices_from_yahoo(ticket_name='spy')._asdict()
+
+    candles = slice_data(
+        start_date=start_date, ticket_candles=ticket_candles
+    )
+
+    his_data = history_price_filter(candles=candles)
+
+    return his_data
 
 @staticmethod
 def get_week_start_and_end(start_date_friday : datetime = None) -> tuple:
 
-    if  start_date_friday is None:
+    if  start_date_friday is None or start_date_friday.weekday() != 4:
         today = datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
         monday = today - timedelta(days=today.weekday())  # Monday
         friday = monday + timedelta(days=4)  # Friday
@@ -242,6 +253,57 @@ def slice_data(start_date: datetime, ticket_candles: dict):
         this_week=get_week_start_and_end(start_date_friday=start_date),
     )
 
+def gen_rs_report(start_date,weekly_result:market_group,gap_range = 10):
+    spy_data = cal_spy(start_date=start_date)
+
+    rs_list = {}
+    daystring = start_date.strftime("%Y-%m-%d")
+    for industry_name, industry_data in weekly_result.industry.items():
+
+        for stock_name , stock_history_data in industry_data.stock.items():
+            
+            close_to_high = False
+            powerful_than_spy = False
+            group_powerful_than_spy = False
+
+            if stock_history_data.yearly_change < spy_data.yearly_change:
+                continue
+            
+            if stock_history_data.weekly_change > spy_data.weekly_change:
+                powerful_than_spy = True
+
+            if industry_data.week_change_avg > spy_data.weekly_change:
+                group_powerful_than_spy = True
+
+            if stock_history_data.gap_from_the_last_high < gap_range:
+                close_to_high = True
+                
+            norm = abs(stock_history_data.yearly_change - spy_data.yearly_change)
+            rs_list[stock_name] = (norm,close_to_high,powerful_than_spy,group_powerful_than_spy)
+
+    rs_dataframe = []
+    
+    for name , data in rs_list.items():
+        tmp = {"name" : name,
+               "rs" : data[0],
+               f"close_to_high_{gap_range}%" : data[1],
+               "powerful_than_spy" : data[2],
+               "group_powerful_than_spy" : data[3]}
+        df = pd.DataFrame(tmp, index=[0])
+        rs_dataframe.append(df)
+
+    ALLDF = pd.concat(rs_dataframe, ignore_index=True)
+    ALLDF = ALLDF.sort_values(by='rs',ascending=False)
+    
+    total_count = len(rs_list.keys())
+    avg = 100 / (total_count -1)
+    ranklist = [100 - avg * i for i in range(total_count)]
+    ranklist[-1] = 0
+    
+    ALLDF['rank'] = ranklist
+    file_name = os.path.join("rs_report","rs_model_" + daystring + ".csv")
+    ALLDF.to_csv(file_name,index=False)
+
 class Ath_model:
     
     '''
@@ -272,7 +334,8 @@ class Ath_model:
                                      range=self.range)
             
             weekly_list.append((day.strftime("%Y-%m-%d"),weekly_result))
-                    
+            gen_rs_report(start_date=day,weekly_result=weekly_result,gap_range=self.range)
+
             tmp = {
                 "start_date": day.strftime("%Y-%m-%d"),
                 "ath_count": weekly_result.ath_count,
@@ -326,3 +389,5 @@ class Ath_model:
             file_name = "ath_model_" + name + ".csv"
             file_name = os.path.join("classic",file_name)
             ALLDF.to_csv(file_name, index=False)
+
+
