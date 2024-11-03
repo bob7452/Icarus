@@ -1,5 +1,5 @@
 from data_analysis import Ath_model
-from datetime import datetime
+from datetime import datetime , timedelta
 from shutil import rmtree
 import os
 from pandas_market_calendars import get_calendar
@@ -32,9 +32,9 @@ def isholidays(start_date):
 if __name__ == "__main__":
 
     RANGE = 10
-    yy,mm,dd  = map(int,datetime.today().strftime("%Y-%m-%d").split('-'))
-    START = datetime(year=yy, month=mm, day=dd-1,hour=8)
-    END = datetime(year=yy, month=mm, day=dd-1,hour=8)
+    yy,mm,dd  = map(int,(datetime.today()-timedelta(days=1)).strftime("%Y-%m-%d").split('-'))
+    START = datetime(year=yy, month=mm, day=dd,hour=8)
+    END = datetime(year=yy, month=mm, day=dd,hour=8)
 
     if isholidays(start_date=START):
         sys.exit(1)

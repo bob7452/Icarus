@@ -39,11 +39,17 @@ def week_change(candles:sliced_candle_info) -> float:
 
     return round(( (candles.closes[-1] /candles.closes[index]) -1 ) * 100 ,2)
 
-def moving_average_data(data:list,moving_weight : int = 5) -> list:
+def calculate_moving_average(data:list,moving_weight : int = 5) -> list:
     df = pd.DataFrame(data,columns=['Price'])
     df[f'MA{moving_weight}'] = df['Price'].rolling(window=moving_weight).mean().fillna(0)
-    ma_list = df[f'MA{moving_weight}'].tolist()
-    return ma_list
+    return df[f'MA{moving_weight}'].tolist()
+
+def above_all_moving_avg_line(data):
+
+    weights = [5, 10, 20, 50, 100, 150, 200]
+    last_price = data[-1]
+
+    return all(last_price >= calculate_moving_average(data, weight)[-1] for weight in weights)
 
 @staticmethod
 def history_price_filter(candles: sliced_candle_info) -> history_price_group:
@@ -65,13 +71,12 @@ def history_price_filter(candles: sliced_candle_info) -> history_price_group:
     weekly_52_low = min(bars_close)
 
     gap = round(((weekly_52_high - bars_close[-1]) / weekly_52_high) * 100, 2)
-    ma5 = moving_average_data(volume)
-    ma20 = moving_average_data(volume,20)
+    ma5 = calculate_moving_average(volume)
+    ma20 = calculate_moving_average(volume,20)
 
-    # break_high = is_high_low_between_this_week(timestamp[bars_close.index(weekly_52_high)], candles.this_week[0],candles.this_week[1])
-    # break_low =  is_high_low_between_this_week(timestamp[bars_close.index(weekly_52_low)], candles.this_week[0],candles.this_week[1])
-    break_high = timestamp[bars_close.index(weekly_52_high)] == candles.today
-    break_low = timestamp[bars_close.index(weekly_52_low)] == candles.today
+    break_high = is_high_low_between_this_week(timestamp[bars_close.index(weekly_52_high)], candles.this_week[0],candles.this_week[1])
+    break_low =  is_high_low_between_this_week(timestamp[bars_close.index(weekly_52_low)], candles.this_week[0],candles.this_week[1])
+    break_high_today = timestamp[bars_close.index(weekly_52_high)] == candles.today
     big_volume = volume[-1] > ma5[-1] and volume[-1] > ma20[-1]
 
     history = history_price_group(
@@ -80,7 +85,9 @@ def history_price_filter(candles: sliced_candle_info) -> history_price_group:
         gap_from_the_last_high=gap,
         break_high=break_high,
         break_low=break_low,
+        break_high_today=break_high_today,
         big_volume = big_volume,
+        above_all_moving_avg_line=above_all_moving_avg_line(bars_close),
         weekly_change=week_change(candles=candles),
         yearly_change=round(((bars_close[-1] /bars_close[0]) -1 ) * 100 ,2),
     )
@@ -278,6 +285,7 @@ def gen_rs_report(start_date,weekly_result:market_group,gap_range = 10):
             powerful_than_spy = False
             group_powerful_than_spy = False
             breakout_with_big_volume = False
+            above_all_moving_avg_line = False
 
             if stock_history_data.yearly_change < spy_data.yearly_change:
                 continue
@@ -291,12 +299,20 @@ def gen_rs_report(start_date,weekly_result:market_group,gap_range = 10):
             if stock_history_data.gap_from_the_last_high < gap_range:
                 close_to_high = True
                 
-            if stock_history_data.big_volume and stock_history_data.break_high:
+            if stock_history_data.big_volume and stock_history_data.break_high_today:
                 breakout_with_big_volume = True
+
+            if stock_history_data.above_all_moving_avg_line:
+                above_all_moving_avg_line = True
                 
 
             norm = abs(stock_history_data.yearly_change - spy_data.yearly_change)
-            rs_list[stock_name] = (norm,close_to_high,powerful_than_spy,group_powerful_than_spy,breakout_with_big_volume)
+            rs_list[stock_name] = (norm,
+                                   close_to_high,powerful_than_spy,
+                                   group_powerful_than_spy,
+                                   breakout_with_big_volume,
+                                   above_all_moving_avg_line,
+                                   industry_name)
 
     rs_dataframe = []
     
@@ -307,6 +323,8 @@ def gen_rs_report(start_date,weekly_result:market_group,gap_range = 10):
                "powerful_than_spy" : data[2],
                "group_powerful_than_spy" : data[3],
                "breakout_with_big_volume" : data[4],
+               "above_all_moving_avg_line" : data[5],
+               "industry_name" : data[6],
                }
         df = pd.DataFrame(tmp, index=[0])
         rs_dataframe.append(df)

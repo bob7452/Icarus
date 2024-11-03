@@ -7,3 +7,5 @@ candles.json
 stock_info_*.json
 *.png
 *.csv
+token.json
+run_rebot.log

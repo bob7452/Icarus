@@ -10,11 +10,11 @@ import gc
 
 def gen_pic(save_path,ticker):
     # Download historical data for a given ticker symbol
-    data = yf.download(ticker, period='5y', progress=False)
+    data = yf.download(ticker, period='1y', progress=False)
 
     # Filter data to show only the last 3 years
     end_date = data.index[-1]
-    start_date = end_date - timedelta(days=int(3 * 252))
+    start_date = data.index[0]
     data_filtered = data.loc[start_date:end_date]
 
     # Define the colors for each moving average line
