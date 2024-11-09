@@ -25,8 +25,8 @@ def get_context():
     filtered_stocks = df[
         (df['close_to_high_10%'] == True) & 
         (df['powerful_than_spy'] == True) & 
-        (df['group_powerful_than_spy'] == True)
-        # (df['breakout_with_big_volume'] == True)
+        (df['group_powerful_than_spy'] == True) &
+        (df['breakout_with_big_volume'] == True)
     ]
 
     return [f'============== {today} ---- SPILT LINE ---- {today} =============='] + filtered_stocks['name'].to_list() + [f'============== {today} ---- SPILT LINE ---- {today} =============='] + ["!TodayStock"]

@@ -51,6 +51,20 @@ def above_all_moving_avg_line(data):
 
     return all(last_price >= calculate_moving_average(data, weight)[-1] for weight in weights)
 
+def cal_volatility(open_bars : list,close_bars : list):
+    change = []
+
+    days = len(open_bars)
+
+    for idx in range(days-1):
+        open_price = open_bars[idx]
+        close_price = close_bars[idx+1]
+        change.append((close_price-open_price)/open_price)
+
+    std_dev = np.std(change)
+
+    return "{:.2f}".format(std_dev * np.sqrt(WEEKLY_52_BAR) * 100)
+
 @staticmethod
 def history_price_filter(candles: sliced_candle_info) -> history_price_group:
     """
@@ -88,6 +102,7 @@ def history_price_filter(candles: sliced_candle_info) -> history_price_group:
         break_high_today=break_high_today,
         big_volume = big_volume,
         above_all_moving_avg_line=above_all_moving_avg_line(bars_close),
+        volatility = cal_volatility(bars_open[bars_close.index(weekly_52_low):],bars_close[bars_close.index(weekly_52_low):]),
         weekly_change=week_change(candles=candles),
         yearly_change=round(((bars_close[-1] /bars_close[0]) -1 ) * 100 ,2),
     )
@@ -248,10 +263,12 @@ def slice_data(start_date: datetime, ticket_candles: dict):
 
     index = 0
     start_date_timestamp = start_date.timestamp()
+    monday_timestamp , _ = get_week_start_and_end(start_date_friday=start_date)
+    monday_datetime = datetime.fromtimestamp(monday_timestamp)
     while True:
         
         now_date = datetime.fromtimestamp(start_date_timestamp)
-        if now_date < LIMIT:
+        if now_date < monday_datetime:
             return None
 
         if start_date_timestamp in ticket_candles["timestamps"]:
@@ -286,6 +303,7 @@ def gen_rs_report(start_date,weekly_result:market_group,gap_range = 10):
             group_powerful_than_spy = False
             breakout_with_big_volume = False
             above_all_moving_avg_line = False
+            volatility= stock_history_data.volatility
 
             if stock_history_data.yearly_change < spy_data.yearly_change:
                 continue
@@ -306,9 +324,11 @@ def gen_rs_report(start_date,weekly_result:market_group,gap_range = 10):
                 above_all_moving_avg_line = True
                 
 
-            norm = abs(stock_history_data.yearly_change - spy_data.yearly_change)
-            rs_list[stock_name] = (norm,
-                                   close_to_high,powerful_than_spy,
+            rs = abs(stock_history_data.yearly_change - spy_data.yearly_change)
+            rs_list[stock_name] = (rs,
+                                   volatility,
+                                   close_to_high,
+                                   powerful_than_spy,
                                    group_powerful_than_spy,
                                    breakout_with_big_volume,
                                    above_all_moving_avg_line,
@@ -319,12 +339,13 @@ def gen_rs_report(start_date,weekly_result:market_group,gap_range = 10):
     for name , data in rs_list.items():
         tmp = {"name" : name,
                "rs" : data[0],
-               f"close_to_high_{gap_range}%" : data[1],
-               "powerful_than_spy" : data[2],
-               "group_powerful_than_spy" : data[3],
-               "breakout_with_big_volume" : data[4],
-               "above_all_moving_avg_line" : data[5],
-               "industry_name" : data[6],
+               "volatility(%)":data[1],
+               f"close_to_high_{gap_range}%" : data[2],
+               "powerful_than_spy" : data[3],
+               "group_powerful_than_spy" : data[4],
+               "breakout_with_big_volume" : data[5],
+               "above_all_moving_avg_line" : data[6],
+               "industry_name" : data[7],
                }
         df = pd.DataFrame(tmp, index=[0])
         rs_dataframe.append(df)

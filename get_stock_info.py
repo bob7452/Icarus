@@ -174,7 +174,7 @@ def load_prices_from_yahoo(
     """
     load stocks price and save to json
     """
-    df = yf.download(ticket_name, period= "1y", auto_adjust=True)
+    df = yf.download(ticket_name, period= "max", auto_adjust=True)
     yahoo_response = df.to_dict()
     timestamps = list(yahoo_response["Open"].keys())
     timestamps = list(map(lambda timestamp: int(timestamp.timestamp()), timestamps))

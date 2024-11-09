@@ -11,6 +11,7 @@ history_price_group = namedtuple(
         "break_high_today",
         "big_volume",
         "above_all_moving_avg_line",
+        "volatility",
         "weekly_change",
         "yearly_change"
     ],

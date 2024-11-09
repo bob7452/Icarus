@@ -9,3 +9,4 @@ stock_info_*.json
 *.csv
 token.json
 run_rebot.log
+main.py

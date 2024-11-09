@@ -29,8 +29,8 @@ def get_picture_path():
     filtered_stocks = df[
         (df['close_to_high_10%'] == True) & 
         (df['powerful_than_spy'] == True) & 
-        (df['group_powerful_than_spy'] == True)
-        # (df['breakout_with_big_volume'] == True)
+        (df['group_powerful_than_spy'] == True) &
+        (df['breakout_with_big_volume'] == True)
     ]
 
     stock_names = filtered_stocks['name'].to_list() 
