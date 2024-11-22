@@ -10,7 +10,7 @@ import gc
 
 def gen_pic(save_path,ticker):
     # Download historical data for a given ticker symbol
-    data = yf.download(ticker, period='1y', progress=False)
+    data = yf.download(ticker, period='ytd', progress=False)
 
     # Filter data to show only the last 3 years
     end_date = data.index[-1]
@@ -64,9 +64,17 @@ if __name__ == "__main__":
 
     lastest_report = max(excels,key=os.path.getmtime)
 
-    csv_data = pd.read_csv(lastest_report)
+    df = pd.read_csv(lastest_report)
 
-    stock = csv_data['name']
+    filtered_stocks = df[
+        (df['close_to_high_10%'] == True) & 
+        (df['powerful_than_spy'] == True) & 
+        (df['group_powerful_than_spy'] == True) &
+        (df['breakout_with_big_volume'] == True)
+    ]
+
+    stock = filtered_stocks['name'].to_list() 
+
     total_count = len(stock)
     process = 0
 

@@ -10,6 +10,7 @@ from io import StringIO
 import yfinance as yf
 from file_io import save_to_json, read_from_json
 import os
+import time
 
 UNKNOWN = "unknown"
 
@@ -140,6 +141,8 @@ def get_total_stocks_basic_info(marketCap = MARKET_CAP_10E,reuse_data = False) -
         ):
             empty_list.append(name)
 
+        time.sleep(0.1)
+
     for name in empty_list:
         del tickets[name]
 
@@ -174,7 +177,7 @@ def load_prices_from_yahoo(
     """
     load stocks price and save to json
     """
-    df = yf.download(ticket_name, period= "max", auto_adjust=True)
+    df = yf.download(ticket_name, period= "ytd", auto_adjust=True)
     yahoo_response = df.to_dict()
     timestamps = list(yahoo_response["Open"].keys())
     timestamps = list(map(lambda timestamp: int(timestamp.timestamp()), timestamps))
@@ -210,6 +213,8 @@ def get_stock_history_price_data(tickets_info: dict,reuse_data = False) -> dict:
         all_candles[name] = load_prices_from_yahoo(
             ticket_name=name,
         )._asdict()
+        
+        time.sleep(0.1)
 
     file_path = "candles.json"
     save_to_json(data=all_candles,json_file_path=file_path)
