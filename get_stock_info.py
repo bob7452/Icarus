@@ -92,14 +92,18 @@ def search_ticker_info(name) -> Ticket:
         return value
 
     escaped_ticker = escape_ticker(name)
-    info = yf.Ticker(escaped_ticker)
+    
+    try:
+        info = yf.Ticker(escaped_ticker)
 
-    ticket = Ticket(
-        ticket=name,
-        sector=get_info_from_dict(info.info, "sector"),
-        industry=get_info_from_dict(info.info, "industry"),
-        marketCap=get_info_from_dict(info.info, "marketCap"),
-    )
+        ticket = Ticket(
+            ticket=name,
+            sector=get_info_from_dict(info.info, "sector"),
+            industry=get_info_from_dict(info.info, "industry"),
+            marketCap=get_info_from_dict(info.info, "marketCap"),
+        )
+    except:
+        return None
 
     return ticket
 
@@ -130,6 +134,10 @@ def get_total_stocks_basic_info(marketCap = MARKET_CAP_10E,reuse_data = False) -
         print(f"process {name} info ({idx+1}/{size})")
 
         ticket = search_ticker_info(name=name)
+
+        if ticket is None:
+            continue
+
         tickets[name]["sector"] = ticket.sector
         tickets[name]["industry"] = ticket.industry
         tickets[name]["marketCap"] = ticket.marketCap
