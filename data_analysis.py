@@ -65,6 +65,9 @@ def cal_volatility(open_bars : list,close_bars : list):
 
     return "{:.2f}".format(std_dev * np.sqrt(WEEKLY_52_BAR) * 100)
 
+def yearly_change(bars_cloes_start : int , weekly_52_low : int , bar_close_end : int):
+    return round(((bar_close_end / bars_cloes_start) -1 ) * 100 ,2) if bars_cloes_start < weekly_52_low else round(((bar_close_end / weekly_52_low) -1 ) * 100 ,2) 
+
 @staticmethod
 def history_price_filter(candles: sliced_candle_info) -> history_price_group:
     """
@@ -104,7 +107,7 @@ def history_price_filter(candles: sliced_candle_info) -> history_price_group:
         above_all_moving_avg_line=above_all_moving_avg_line(bars_close),
         volatility = cal_volatility(bars_open[bars_close.index(weekly_52_low):],bars_close[bars_close.index(weekly_52_low):]),
         weekly_change=week_change(candles=candles),
-        yearly_change=round(((bars_close[-1] /bars_close[0]) -1 ) * 100 ,2),
+        yearly_change=yearly_change(bars_cloes_start=bars_close[0],bar_close_end=bars_close[-1],weekly_52_low=weekly_52_low),
     )
 
     if break_high and break_low:
@@ -232,7 +235,7 @@ def cal_data(tickets_info: dict, start_date: datetime, all_data: dict , range = 
 
 def cal_spy(start_date: datetime) -> history_price_group:
 
-    ticket_candles = load_prices_from_yahoo(ticket_name='spy')._asdict()
+    ticket_candles = load_prices_from_yahoo(ticket_name='SPY')._asdict()
 
     candles = slice_data(
         start_date=start_date, ticket_candles=ticket_candles
@@ -256,6 +259,7 @@ def get_week_start_and_end(start_date_friday : datetime = None) -> tuple:
         monday = start_date_friday - timedelta(days=4) + timedelta(hours=8)
         friday = start_date_friday
 
+
     return (monday.timestamp(), friday.timestamp())
 
 @staticmethod
@@ -265,9 +269,11 @@ def slice_data(start_date: datetime, ticket_candles: dict):
     start_date_timestamp = start_date.timestamp()
     monday_timestamp , _ = get_week_start_and_end(start_date_friday=start_date)
     monday_datetime = datetime.fromtimestamp(monday_timestamp)
+    print(f"monday_datetime : {monday_datetime}")
     while True:
         
         now_date = datetime.fromtimestamp(start_date_timestamp)
+        print(f"now_date : {now_date} , {start_date_timestamp}")
         if now_date < monday_datetime:
             return None
 

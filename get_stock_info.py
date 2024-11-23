@@ -186,14 +186,28 @@ def load_prices_from_yahoo(
     load stocks price and save to json
     """
     df = yf.download(ticket_name, period= "ytd", auto_adjust=True)
-    yahoo_response = df.to_dict()
-    timestamps = list(yahoo_response["Open"].keys())
+    # yahoo_response = df.to_dict()
+    # print(yahoo_response)
+
+    # print(df['High']['AAPL'].tolist())
+    # print(df['High']['AAPL'].index.tolist()[0].timestamp())
+
+    timestamps = df['High'][ticket_name].index.tolist()
     timestamps = list(map(lambda timestamp: int(timestamp.timestamp()), timestamps))
-    opens = list(yahoo_response["Open"].values())
-    closes = list(yahoo_response["Close"].values())
-    lows = list(yahoo_response["Low"].values())
-    highs = list(yahoo_response["High"].values())
-    volumes = list(yahoo_response["Volume"].values())
+    opens  = df['Open'][ticket_name].tolist()
+    closes = df['Close'][ticket_name].tolist()
+    lows = df['Low'][ticket_name].tolist()
+    highs = df['High'][ticket_name].tolist()
+    volumes = df['Volume'][ticket_name].tolist()
+
+
+    # timestamps = list(yahoo_response.keys())
+    # timestamps = list(map(lambda timestamp: int(timestamp.timestamp()), timestamps))
+    # opens = list(yahoo_response["Open"].values())
+    # closes = list(yahoo_response["Close"].values())
+    # lows = list(yahoo_response["Low"].values())
+    # highs = list(yahoo_response["High"].values())
+    # volumes = list(yahoo_response["Volume"].values())
     return candles_info(
         opens=opens,
         closes=closes,

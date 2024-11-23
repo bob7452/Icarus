@@ -3,7 +3,7 @@ import mplfinance as mpf
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib
-from datetime import datetime, timedelta
+from file_io import read_from_json
 import os
 import shutil
 import gc
@@ -12,10 +12,18 @@ def gen_pic(save_path,ticker):
     # Download historical data for a given ticker symbol
     data = yf.download(ticker, period='ytd', progress=False)
 
-    # Filter data to show only the last 3 years
-    end_date = data.index[-1]
-    start_date = data.index[0]
-    data_filtered = data.loc[start_date:end_date]
+    data_dict = {
+        "Adj Close" : data['Adj Close'][ticker].tolist(),
+        "Close" : data['Close'][ticker].tolist(),
+        "High" : data['High'][ticker].tolist(),
+        "Low" : data['Low'][ticker].tolist(),
+        "Open" : data['Open'][ticker].tolist(),
+        "Volume" : data['Volume'][ticker].tolist(),
+    }
+
+    data_filtered = pd.DataFrame(data=data_dict)
+    data_filtered.index = data['High'][ticker].index.tolist()
+    
 
     # Define the colors for each moving average line
     mav_colors = ['red', 'blue', 'green', 'orange', 'purple', 'brown']
@@ -77,6 +85,8 @@ if __name__ == "__main__":
 
     total_count = len(stock)
     process = 0
+
+    candles = read_from_json("candles.json")
 
     for idx,name in enumerate(stock):
 
