@@ -10,3 +10,4 @@ stock_info_*.json
 token.json
 run_rebot.log
 main.py
+logs/
