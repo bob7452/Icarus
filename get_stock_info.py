@@ -9,8 +9,8 @@ from ftplib import FTP
 from io import StringIO
 import yfinance as yf
 from file_io import save_to_json, read_from_json
-import os
 import time
+from common_data_type import candles_info
 
 UNKNOWN = "unknown"
 
@@ -158,26 +158,6 @@ def get_total_stocks_basic_info(marketCap = MARKET_CAP_10E,reuse_data = False) -
 
     return tickets
 
-
-import yfinance as yf
-from collections import namedtuple
-from file_io import save_to_json
-
-
-
-candles_info = namedtuple(
-    "candle_info",
-    [
-        "opens",
-        "closes",
-        "lows",
-        "highs",
-        "volumes",
-        "timestamps",
-    ],
-)
-
-
 @staticmethod
 def load_prices_from_yahoo(
     ticket_name: str,
@@ -241,3 +221,36 @@ def get_stock_history_price_data(tickets_info: dict,reuse_data = False) -> dict:
     file_path = "candles.json"
     save_to_json(data=all_candles,json_file_path=file_path)
     return all_candles
+
+
+def get_stock_option_data(ticket_name: str, type: str = "call") -> list:
+    """
+    Fetches option chain data (calls or puts) for a given stock symbol from Yahoo Finance.
+
+    Parameters:
+    ticket_name (str): The stock symbol (e.g., 'AAPL') for which to fetch options data.
+    type (str): The type of options to fetch. It can be either 'call' or 'put'. Default is 'call'.
+
+    Returns:
+    list: A list of dataframes, each containing the option chain for a specific expiration date. 
+          Each dataframe corresponds to either call or put options, depending on the 'type' parameter.
+    None: If an error occurs while fetching the options data.
+    """
+
+    try:
+        ticker = yf.Ticker(ticket_name)
+        expiration_dates = ticker.options
+
+        option_data_frames = []
+
+        for expiration_date in expiration_dates:
+            if type == "call":
+                option_chain = ticker.option_chain(expiration_date).calls
+            else:
+                option_chain = ticker.option_chain(expiration_date).puts
+
+            option_data_frames.append(option_chain)
+    except Exception:
+        return None
+
+    return option_data_frames

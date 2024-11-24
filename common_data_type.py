@@ -31,6 +31,30 @@ sliced_candle_info = namedtuple(
     ],
 )
 
+open_interest_data = namedtuple(
+    "open_interest_data",
+    [
+        "stock_name", 
+        "date", 
+        "strike", 
+        "open_interest", 
+        "expiration_date", 
+        "record_time",
+    ],
+)
+
+candles_info = namedtuple(
+    "candle_info",
+    [
+        "opens",
+        "closes",
+        "lows",
+        "highs",
+        "volumes",
+        "timestamps",
+    ],
+)
+
 class market_group:
     def __init__(self) -> None:
         self.industry = {}
