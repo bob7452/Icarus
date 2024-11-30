@@ -88,6 +88,8 @@ def search_ticker_info(name) -> Ticket:
         if type(value) == str:
             value = value.replace("\u2014", " ")
             value = value.replace("â€”", " ")
+            value = value.replace("-","")
+            value = ' '.join(value.split())
 
         return value
 
@@ -165,7 +167,7 @@ def load_prices_from_yahoo(
     """
     load stocks price and save to json
     """
-    df = yf.download(ticket_name, period= "ytd", auto_adjust=True)
+    df = yf.download(ticket_name, period= "max", auto_adjust=True)
     # yahoo_response = df.to_dict()
     # print(yahoo_response)
 

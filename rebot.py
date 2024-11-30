@@ -6,36 +6,23 @@ intents.message_content = True  # 啟用接收訊息內容的權限
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 
-import time
-import pandas as pd
 import os
-from datetime import datetime
-from file_io import read_from_json
+from file_io import read_from_json , read_lastest_heat_report
+from stock_rules import qualified_stocks
 
 ROOT = os.path.dirname(__file__)
 TOKEN = os.path.join(ROOT,"token.json")
 RS_REPORT = os.path.join(ROOT,"rs_report")
 PICTURE_PATH = os.path.join(ROOT,"picture","rs_picture")
+HEAT_REPORT = os.path.join(RS_REPORT,"heat_rank.csv")
+
 
 def get_picture_path():
     
-    excels = []
-    for file_name in os.listdir(RS_REPORT):
-        excels.append(os.path.join(RS_REPORT,file_name))
-
-    lastest_report = max(excels,key=os.path.getmtime)
-    df = pd.read_csv(lastest_report)
-
-    filtered_stocks = df[
-        (df['close_to_high_10%'] == True) & 
-        (df['powerful_than_spy'] == True) & 
-        (df['group_powerful_than_spy'] == True) &
-        (df['breakout_with_big_volume'] == True)
-    ]
-
+    filtered_stocks = qualified_stocks()
     stock_names = filtered_stocks['name'].to_list() 
 
-    picpath = [os.path.join(PICTURE_PATH,f"{name}.png") for name in stock_names]
+    picpath = [(name,os.path.join(PICTURE_PATH,f"{name}.png")) for name in stock_names]
 
     return picpath
 
@@ -48,9 +35,14 @@ async def on_ready():
 @bot.command()
 async def TodayStock(ctx):
     pictures = get_picture_path()
+    heat = read_lastest_heat_report()
 
-    for picture in pictures:
-        pic = discord.File(picture)
+    for name,path in pictures:
+        if not os.path.exists(path):
+            continue
+        if name in heat:
+            await ctx.send(f"!!! {name} --- Today HEAT --- {name}!!!")
+        pic = discord.File(path)
         await ctx.send(file=pic)    
 
 

@@ -6,6 +6,8 @@ import pandas as pd
 import os
 from datetime import datetime
 from file_io import read_from_json
+from stock_rules import qualified_stocks
+from collections import Counter
 
 ROOT = os.path.dirname(__file__)
 TOKEN = os.path.join(ROOT,"token.json")
@@ -15,21 +17,19 @@ PICTURE_PATH = os.path.join(ROOT,"picture","rs_picture")
 def get_context():
     today = datetime.today().strftime("%Y-%m-%d")
 
-    excels = []
-    for file_name in os.listdir(RS_REPORT):
-        excels.append(os.path.join(RS_REPORT,file_name))
+    filtered_stocks = qualified_stocks()
 
-    lastest_report = max(excels,key=os.path.getmtime)
-    df = pd.read_csv(lastest_report)
+    industry = filtered_stocks['industry_name'].to_list()
+    industry_cnt = Counter(industry)    
+    industry_summary = "\n".join(f"{industry_name} : {count}" for industry_name, count in industry_cnt.most_common())
 
-    filtered_stocks = df[
-        (df['close_to_high_10%'] == True) & 
-        (df['powerful_than_spy'] == True) & 
-        (df['group_powerful_than_spy'] == True) &
-        (df['breakout_with_big_volume'] == True)
-    ]
 
-    return [f'============== {today} ---- SPILT LINE ---- {today} =============='] + filtered_stocks['name'].to_list() + [f'============== {today} ---- SPILT LINE ---- {today} =============='] + ["!TodayStock"]
+    return [f'============== {today} ---- SPILT LINE ---- {today} =============='] \
+    + filtered_stocks['name'].to_list() \
+    + [f'============== {today} ---- Group Summary ---- {today} ==============']\
+    + [industry_summary] \
+    + [f'============== {today} ---- SPILT LINE ---- {today} ==============']\
+    + ["!TodayStock"]
 
 
 

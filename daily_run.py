@@ -4,6 +4,7 @@ from shutil import rmtree
 import os
 from pandas_market_calendars import get_calendar
 import sys
+from get_stock_info import MARKET_CAP_10E
 
 def restore():
     rmtree(path="rs_report")
@@ -41,5 +42,5 @@ if __name__ == "__main__":
 
     restore()
 
-    ath_model = Ath_model(start_date=START,end_date=END,gap_to_high_range=RANGE,reuse_data=False)
+    ath_model = Ath_model(start_date=START,end_date=END,gap_to_high_range=RANGE,marketCap=MARKET_CAP_10E,reuse_data=False)
     ath_model.run()

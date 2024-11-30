@@ -5,8 +5,7 @@ process data
 
 from common_data_type import industry_group,market_group,sliced_candle_info,history_price_group
 from datetime import datetime , timedelta
-from file_io import read_from_json
-from get_stock_info import load_prices_from_yahoo , get_stock_history_price_data , get_total_stocks_basic_info , MARKET_CAP_100E , MARKET_CAP_10E , STOCK_INFO_JSON_PATH , STOCK_PRICE_JSON_FILE
+from get_stock_info import load_prices_from_yahoo , get_stock_history_price_data , get_total_stocks_basic_info , MARKET_CAP_100E
 import pandas as pd
 import numpy as np
 import os
@@ -45,11 +44,17 @@ def calculate_moving_average(data:list,moving_weight : int = 5) -> list:
     return df[f'MA{moving_weight}'].tolist()
 
 def above_all_moving_avg_line(data):
-
     weights = [5, 10, 20, 50, 100, 150, 200]
+    moving_averages = {weight: calculate_moving_average(data, weight)[-1] for weight in weights}
     last_price = data[-1]
 
-    return all(last_price >= calculate_moving_average(data, weight)[-1] for weight in weights)
+    above_all = all(last_price >= moving_averages[weight] for weight in weights)
+    
+    specific_condition = (
+        last_price > moving_averages[20] > moving_averages[50] > moving_averages[200]
+    )
+
+    return above_all and specific_condition
 
 def cal_volatility(open_bars : list,close_bars : list):
     change = []

@@ -3,7 +3,7 @@ import mplfinance as mpf
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib
-from file_io import read_from_json
+from file_io import read_from_json , read_lastest_rs_report
 import os
 import shutil
 import gc
@@ -66,19 +66,14 @@ if __name__ == "__main__":
     
     os.mkdir(picture_path)
 
-    excels = []
-    for file_name in os.listdir(report_loc):
-        excels.append(os.path.join(report_loc,file_name))
-
-    lastest_report = max(excels,key=os.path.getmtime)
-
-    df = pd.read_csv(lastest_report)
+    df = read_lastest_rs_report()
 
     filtered_stocks = df[
         (df['close_to_high_10%'] == True) & 
         (df['powerful_than_spy'] == True) & 
         (df['group_powerful_than_spy'] == True) &
-        (df['breakout_with_big_volume'] == True)
+        (df['breakout_with_big_volume'] == True) &
+        (df['above_all_moving_avg_line'] == True)
     ]
 
     stock = filtered_stocks['name'].to_list() 

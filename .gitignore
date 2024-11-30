@@ -11,3 +11,4 @@ token.json
 run_rebot.log
 main.py
 logs/
+database/
