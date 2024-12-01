@@ -2,8 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 import os
 import pandas as pd
-import matplotlib.pyplot as plt
-import numpy as np
+from file_io import read_lastest_rs_report,read_lastest_rs_report_path,HEAT_REPORT
 
 def get_heat_ranks()->list:
     # 目标网址
@@ -14,7 +13,7 @@ def get_heat_ranks()->list:
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
     }
 
-    ranks = []
+    ranks = {}
 
     # 发起HTTP请求
     response = requests.get(url, headers=headers)
@@ -39,7 +38,7 @@ def get_heat_ranks()->list:
                 average_index_text = average_index.get_text(strip=True)
                 print(f"Average Index: {average_index_text}")
 
-            ranks+=[(code_text,average_index_text)]
+            ranks[code_text] = average_index_text
 
     else:
         print(f"请求失败，状态码：{response.status_code}")
@@ -50,15 +49,18 @@ def get_heat_ranks()->list:
 
 if __name__ == "__main__":
     ranks = get_heat_ranks()
-    heat_report_path = os.path.join(os.path.dirname(__file__),"rs_report","heat_rank.csv")
 
     heat_ranks = []
-    for ticket,heat in ranks:
+    for ticket,heat in ranks.items():
         tmp = {"ticket" : ticket,
                "heat" : int(heat),}
         df = pd.DataFrame(tmp, index=[0])
         heat_ranks.append(df)
 
-        ALLDF = pd.concat(heat_ranks, ignore_index=True)
-        ALLDF = ALLDF.sort_values(by='heat',ascending=False)
-        ALLDF.to_csv(heat_report_path,index=False)
+    ALLDF = pd.concat(heat_ranks, ignore_index=True)
+    ALLDF = ALLDF.sort_values(by='heat',ascending=False)
+    ALLDF.to_csv(HEAT_REPORT,index=False)
+
+    rs_df = read_lastest_rs_report()
+    rs_df['Heat'] = rs_df['name'].apply(lambda x:x in ranks)
+    rs_df.to_csv(read_lastest_rs_report_path(),index=False)

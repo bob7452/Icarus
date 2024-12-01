@@ -30,7 +30,7 @@ def gen_pic(save_path,ticker):
 
     # Set figure size to 1920x1080 pixels
     fig, ax = mpf.plot(data_filtered, type='candle', style='charles',
-                    title=f'{ticker} Daily Candlestick Chart with MA (Last 3 Years)',
+                    title=f'{ticker} Daily Candlestick Chart with MA (ytd)',
                     mav=(5, 20, 50, 100, 150, 200),
                     volume=True,
                     show_nontrading=False,

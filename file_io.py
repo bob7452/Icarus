@@ -38,6 +38,16 @@ def read_lastest_rs_report()->pd.DataFrame:
 
     return pd.read_csv(lastest_report)
 
+def read_lastest_rs_report_path()->str:
+    excels = []
+    for file_name in os.listdir(RS_REPORT):
+        if file_name.startswith("rs_model"):
+            excels.append(os.path.join(RS_REPORT,file_name))
+
+    lastest_report = max(excels,key=os.path.getmtime)
+
+    return lastest_report
+
 def read_lastest_heat_report()->pd.DataFrame:
     heats = pd.read_csv(HEAT_REPORT)
     return heats['ticket'].to_list()

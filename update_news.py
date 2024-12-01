@@ -18,16 +18,16 @@ def get_context():
     today = datetime.today().strftime("%Y-%m-%d")
 
     filtered_stocks = qualified_stocks()
-
     industry = filtered_stocks['industry_name'].to_list()
     industry_cnt = Counter(industry)    
     industry_summary = "\n".join(f"{industry_name} : {count}" for industry_name, count in industry_cnt.most_common())
 
+    breakpoint()
 
     return [f'============== {today} ---- SPILT LINE ---- {today} =============='] \
     + filtered_stocks['name'].to_list() \
     + [f'============== {today} ---- Group Summary ---- {today} ==============']\
-    + [industry_summary] \
+    + industry_summary.splitlines() \
     + [f'============== {today} ---- SPILT LINE ---- {today} ==============']\
     + ["!TodayStock"]
 

@@ -12,3 +12,14 @@ def qualified_stocks():
     ]
 
     return filtered_stocks
+
+def powerful_than_spy_stock():
+    df = read_lastest_rs_report()
+    
+    filtered_stocks = df[
+        (df['powerful_than_spy'] == True) & 
+        (df['group_powerful_than_spy'] == True) &
+        (df['above_all_moving_avg_line'] == True)
+    ]
+
+    return filtered_stocks
