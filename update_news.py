@@ -22,8 +22,6 @@ def get_context():
     industry_cnt = Counter(industry)    
     industry_summary = "\n".join(f"{industry_name} : {count}" for industry_name, count in industry_cnt.most_common())
 
-    breakpoint()
-
     return [f'============== {today} ---- SPILT LINE ---- {today} =============='] \
     + filtered_stocks['name'].to_list() \
     + [f'============== {today} ---- Group Summary ---- {today} ==============']\
