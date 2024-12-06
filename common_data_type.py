@@ -13,7 +13,8 @@ history_price_group = namedtuple(
         "above_all_moving_avg_line",
         "volatility",
         "weekly_change",
-        "yearly_change"
+        "yearly_change",
+        "seasons_change"
     ],
 )
 

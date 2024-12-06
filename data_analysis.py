@@ -13,6 +13,7 @@ import os
 
 PERIOD = 1 * 365 + 183
 WEEKLY_52_BAR = 252
+SEASON_BAR = 63
 LIMIT = datetime(year=2019,month=12,day=27,hour=8)
 RANGE = 10
 
@@ -73,6 +74,17 @@ def cal_volatility(open_bars : list,close_bars : list):
 def yearly_change(bars_cloes_start : int , weekly_52_low : int , bar_close_end : int):
     return round(((bar_close_end / bars_cloes_start) -1 ) * 100 ,2) if bars_cloes_start < weekly_52_low else round(((bar_close_end / weekly_52_low) -1 ) * 100 ,2) 
 
+def seanson_change(bar_close : list) -> list:
+    changes = []
+    for i in range(4,0,-1):
+        tmp = bar_close[-1 * SEASON_BAR * i :]
+        if len(bar_close) < SEASON_BAR * i:
+            changes.append(None)
+        else:
+            tmp = tmp[:SEASON_BAR]
+            changes.append(round(((tmp[-1] / tmp[0]) - 1)* 100,2))
+    return changes
+
 @staticmethod
 def history_price_filter(candles: sliced_candle_info) -> history_price_group:
     """
@@ -113,6 +125,7 @@ def history_price_filter(candles: sliced_candle_info) -> history_price_group:
         volatility = cal_volatility(bars_open[bars_close.index(weekly_52_low):],bars_close[bars_close.index(weekly_52_low):]),
         weekly_change=week_change(candles=candles),
         yearly_change=yearly_change(bars_cloes_start=bars_close[0],bar_close_end=bars_close[-1],weekly_52_low=weekly_52_low),
+        seasons_change=seanson_change(bar_close=bars_close),
     )
 
     if break_high and break_low:
@@ -300,11 +313,32 @@ def slice_data(start_date: datetime, ticket_candles: dict):
         today=start_date.timestamp(),
     )
 
+def relative_strength(season_change :list , season_weight , season_min):
+    none_count = season_change.count(None)
+
+    if none_count == 4:
+        return -1
+    elif none_count == 3:
+        return (season_change[-1] - season_min[-1]) / season_weight[-1]
+    elif none_count == 2:
+        return (season_change[-1] - season_min[-1]) / season_weight[-1] * 0.6 \
+                + (season_change[-2] - season_min[-2]) / season_weight[-2] * 0.4
+    elif none_count == 1:
+        return (season_change[-1] - season_min[-1]) / season_weight[-1] * 0.6 \
+                + (season_change[-2] - season_min[-2]) / season_weight[-2] * 0.2 \
+                + (season_change[-3] - season_min[-3]) / season_weight[-3] * 0.2
+    else:
+        return (season_change[-1] - season_min[-1]) / season_weight[-1] * 0.6 \
+                + (season_change[-2] - season_min[-2]) / season_weight[-2] * 0.2 \
+                + (season_change[-3] - season_min[-3]) / season_weight[-3] * 0.1 \
+                + (season_change[-4] - season_min[-4]) / season_weight[-4] * 0.1
+
 def gen_rs_report(start_date,weekly_result:market_group,gap_range = 10):
     spy_data = cal_spy(start_date=start_date)
 
     rs_list = {}
-    daystring = start_date.strftime("%Y-%m-%d")
+    season_total = {i : [] for i in range(4)}
+
     for industry_name, industry_data in weekly_result.industry.items():
 
         for stock_name , stock_history_data in industry_data.stock.items():
@@ -334,6 +368,9 @@ def gen_rs_report(start_date,weekly_result:market_group,gap_range = 10):
             if stock_history_data.above_all_moving_avg_line:
                 above_all_moving_avg_line = True
                 
+            for idx,season_change  in enumerate(stock_history_data.seasons_change):
+                if season_change:
+                    season_total[idx].append(season_change)
 
             rs = abs(stock_history_data.yearly_change - spy_data.yearly_change)
             rs_list[stock_name] = (rs,
@@ -343,9 +380,18 @@ def gen_rs_report(start_date,weekly_result:market_group,gap_range = 10):
                                    group_powerful_than_spy,
                                    breakout_with_big_volume,
                                    above_all_moving_avg_line,
-                                   industry_name)
+                                   industry_name,
+                                   stock_history_data.seasons_change)
 
     rs_dataframe = []
+
+    season_weight = []
+    season_min = []
+
+    for i in range(4):
+        season_min.append(min(season_total[i]))
+        season_weight.append(abs(max(season_total[i])-min(season_total[i])))
+
     
     for name , data in rs_list.items():
         tmp = {"name" : name,
@@ -357,12 +403,13 @@ def gen_rs_report(start_date,weekly_result:market_group,gap_range = 10):
                "breakout_with_big_volume" : data[5],
                "above_all_moving_avg_line" : data[6],
                "industry_name" : data[7],
+               "relative_strength" : relative_strength(season_change=data[8],season_weight=season_weight,season_min=season_min),
                }
         df = pd.DataFrame(tmp, index=[0])
         rs_dataframe.append(df)
 
     ALLDF = pd.concat(rs_dataframe, ignore_index=True)
-    ALLDF = ALLDF.sort_values(by='rs',ascending=False)
+    ALLDF = ALLDF.sort_values(by='relative_strength',ascending=False)
     
     total_count = len(rs_list.keys())
     avg = 100 / (total_count -1)
@@ -370,6 +417,8 @@ def gen_rs_report(start_date,weekly_result:market_group,gap_range = 10):
     ranklist[-1] = 0
     
     ALLDF['rank'] = ranklist
+
+    daystring = start_date.strftime("%Y-%m-%d")
     file_name = os.path.join("rs_report","rs_model_" + daystring + ".csv")
     ALLDF.to_csv(file_name,index=False)
 
