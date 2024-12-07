@@ -29,7 +29,7 @@ def get_context():
     + [f'============== {today} ---- News Summary ---- {today} ==============']\
     + read_lastest_news_report()\
     + [f'============== {today} ---- SPILT LINE ---- {today} ==============']\
-    #+ ["!TodayStock"]
+    + ["!TodayStock"]
 
 
 def chat(chanel_list,authorization_list):

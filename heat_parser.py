@@ -44,8 +44,10 @@ def get_heat_ranks_and_news() -> tuple:
         for news_item in news_items:
             title = news_item.get_text(strip=True)
             link = news_item.get("href")
+        
+            
             print(f"{title} : {link}")
-            news_list[title] = link
+            news_list[title] = link if "post" in link else "\n"
 
     else:
         print(f"请求失败，状态码：{response.status_code}")
@@ -79,5 +81,6 @@ if __name__ == "__main__":
         news.append(df)
 
     ALLDF = pd.concat(news, ignore_index=True)
+    ALLDF = ALLDF.sort_values(by='link', ascending=True)
     ALLDF.to_csv(NEW_REPORT, index=False)
 
