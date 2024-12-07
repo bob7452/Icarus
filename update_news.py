@@ -5,7 +5,7 @@ import time
 import pandas as pd
 import os
 from datetime import datetime
-from file_io import read_from_json
+from file_io import read_from_json , read_lastest_news_report
 from stock_rules import qualified_stocks
 from collections import Counter
 
@@ -26,9 +26,10 @@ def get_context():
     + filtered_stocks['name'].to_list() \
     + [f'============== {today} ---- Group Summary ---- {today} ==============']\
     + industry_summary.splitlines() \
+    + [f'============== {today} ---- News Summary ---- {today} ==============']\
+    + read_lastest_news_report()\
     + [f'============== {today} ---- SPILT LINE ---- {today} ==============']\
-    + ["!TodayStock"]
-
+    #+ ["!TodayStock"]
 
 
 def chat(chanel_list,authorization_list):
@@ -57,7 +58,7 @@ def chat(chanel_list,authorization_list):
                 except Exception as e:
                     print(e)
                 finally:
-                    time.sleep(0.5)
+                    time.sleep(3)
 
 
 if __name__ == "__main__":

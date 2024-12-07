@@ -22,6 +22,8 @@ MARKET_CAP_100E = 10_000_000_000
 MARKET_CAP_50E  = 5_000_000_000
 MARKET_CAP_10E  = 1_000_000_000
 
+SOCKET_DELAY = 0.2
+
 Ticket = namedtuple("Ticket", ["ticket", "sector", "industry", "marketCap",])
 
 @staticmethod
@@ -151,7 +153,7 @@ def get_total_stocks_basic_info(marketCap = MARKET_CAP_10E,reuse_data = False) -
         ):
             empty_list.append(name)
 
-        time.sleep(0.1)
+        time.sleep(SOCKET_DELAY)
 
     for name in empty_list:
         del tickets[name]
@@ -218,7 +220,7 @@ def get_stock_history_price_data(tickets_info: dict,reuse_data = False) -> dict:
             ticket_name=name,
         )._asdict()
         
-        time.sleep(0.1)
+        time.sleep(SOCKET_DELAY)
 
     file_path = "candles.json"
     save_to_json(data=all_candles,json_file_path=file_path)

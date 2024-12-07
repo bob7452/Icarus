@@ -4,6 +4,7 @@ import pandas as pd
 ROOT = os.path.dirname(__file__)
 RS_REPORT = os.path.join(ROOT,"rs_report")
 HEAT_REPORT = os.path.join(RS_REPORT,"heat_rank.csv")
+NEW_REPORT = os.path.join(RS_REPORT,"new.csv")
 
 
 def read_from_json(json_file_path: str) -> None:
@@ -51,3 +52,15 @@ def read_lastest_rs_report_path()->str:
 def read_lastest_heat_report()->pd.DataFrame:
     heats = pd.read_csv(HEAT_REPORT)
     return heats['ticket'].to_list()
+
+def read_lastest_news_report() -> list[str]:
+    news = pd.read_csv(NEW_REPORT)
+    
+    title = news['title'].to_list()
+    link  = news['link'].to_list()
+
+    message = []
+    for t , l in zip(title,link):
+        message.append(f"{t}\n{l}")
+
+    return message
