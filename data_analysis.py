@@ -395,7 +395,8 @@ def gen_rs_report(start_date,weekly_result:market_group,gap_range = 10):
     
     for name , data in rs_list.items():
         tmp = {"name" : name,
-               "rs" : data[0],
+               "yearly_change" : data[0],
+               "current_season_change" : data[8][-1],
                "volatility(%)":data[1],
                f"close_to_high_{gap_range}%" : data[2],
                "powerful_than_spy" : data[3],

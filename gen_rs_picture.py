@@ -3,26 +3,27 @@ import mplfinance as mpf
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib
-from file_io import read_from_json , read_lastest_rs_report
+from file_io import read_from_json
+from stock_rules import qualified_stocks
 import os
 import shutil
 import gc
 
 def gen_pic(save_path,ticker):
     # Download historical data for a given ticker symbol
-    data = yf.download(ticker, period='ytd', progress=False)
+    data = yf.download(ticker, period='max', progress=False)
 
     data_dict = {
-        "Adj Close" : data['Adj Close'][ticker].tolist(),
-        "Close" : data['Close'][ticker].tolist(),
-        "High" : data['High'][ticker].tolist(),
-        "Low" : data['Low'][ticker].tolist(),
-        "Open" : data['Open'][ticker].tolist(),
-        "Volume" : data['Volume'][ticker].tolist(),
+        "Adj Close" : data['Adj Close'][ticker].tolist()[-252:],
+        "Close" : data['Close'][ticker].tolist()[-252:],
+        "High" : data['High'][ticker].tolist()[-252:],
+        "Low" : data['Low'][ticker].tolist()[-252:],
+        "Open" : data['Open'][ticker].tolist()[-252:],
+        "Volume" : data['Volume'][ticker].tolist()[-252:],
     }
 
     data_filtered = pd.DataFrame(data=data_dict)
-    data_filtered.index = data['High'][ticker].index.tolist()
+    data_filtered.index = data['High'][ticker].index.tolist()[-252:]
     
 
     # Define the colors for each moving average line
@@ -66,15 +67,7 @@ if __name__ == "__main__":
     
     os.mkdir(picture_path)
 
-    df = read_lastest_rs_report()
-
-    filtered_stocks = df[
-        (df['close_to_high_10%'] == True) & 
-        (df['powerful_than_spy'] == True) & 
-        (df['group_powerful_than_spy'] == True) &
-        (df['breakout_with_big_volume'] == True) &
-        (df['above_all_moving_avg_line'] == True)
-    ]
+    filtered_stocks = qualified_stocks()
 
     stock = filtered_stocks['name'].to_list() 
 
@@ -87,7 +80,10 @@ if __name__ == "__main__":
 
             save_path = os.path.join(picture_path,name+".png")
 
-            gen_pic(save_path,ticker=name)
+            try:
+                gen_pic(save_path,ticker=name)
+            except:
+                pass
 
             process+=1 
             print(f" total process ==== ({process} / {total_count}) ==== ")

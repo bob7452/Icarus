@@ -7,8 +7,8 @@ def qualified_stocks():
         (df['close_to_high_10%'] == True) & 
         (df['powerful_than_spy'] == True) & 
         (df['group_powerful_than_spy'] == True) &
-        (df['breakout_with_big_volume'] == True) &
-        (df['above_all_moving_avg_line'] == True)
+        (df['breakout_with_big_volume'] == True)
+        # (df['above_all_moving_avg_line'] == True)
     ]
 
     return filtered_stocks
