@@ -12,3 +12,4 @@ run_rebot.log
 main.py
 logs/
 database/
+*.txt
