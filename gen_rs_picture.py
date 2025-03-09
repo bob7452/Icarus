@@ -11,10 +11,11 @@ import gc
 
 def gen_pic(save_path,ticker):
     # Download historical data for a given ticker symbol
-    data = yf.download(ticker, period='max', progress=False)
+    data = yf.download(ticker, period= "max", auto_adjust=True)
+    print(data)
 
     data_dict = {
-        "Adj Close" : data['Adj Close'][ticker].tolist()[-252:],
+        # "Adj Close" : data['Adj Close'][ticker].tolist()[-252:],
         "Close" : data['Close'][ticker].tolist()[-252:],
         "High" : data['High'][ticker].tolist()[-252:],
         "Low" : data['Low'][ticker].tolist()[-252:],
@@ -78,13 +79,13 @@ if __name__ == "__main__":
 
     for idx,name in enumerate(stock):
 
-            save_path = os.path.join(picture_path,name+".png")
+        save_path = os.path.join(picture_path,name+".png")
 
-            try:
-                gen_pic(save_path,ticker=name)
-            except:
-                pass
+        try:
+            gen_pic(save_path,ticker=name)
+        except Exception as e:
+            raise(e)
 
-            process+=1 
-            print(f" total process ==== ({process} / {total_count}) ==== ")
+        process+=1 
+        print(f" total process ==== ({process} / {total_count}) ==== ")
 

@@ -23,3 +23,12 @@ def powerful_than_spy_stock():
     ]
 
     return filtered_stocks
+
+def rs_above_90():
+    df = read_lastest_rs_report()
+    
+    filtered_stocks = df[
+        (df['rank'] >= 90)  
+    ]
+
+    return filtered_stocks

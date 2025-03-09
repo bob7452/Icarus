@@ -5,6 +5,7 @@ ROOT = os.path.dirname(__file__)
 RS_REPORT = os.path.join(ROOT,"rs_report")
 HEAT_REPORT = os.path.join(RS_REPORT,"heat_rank.csv")
 NEW_REPORT = os.path.join(RS_REPORT,"new.csv")
+STOCK_INFO_JSON = os.path.join(ROOT,"stock_info.json")
 
 
 def read_from_json(json_file_path: str) -> None:
@@ -64,3 +65,6 @@ def read_lastest_news_report() -> list[str]:
         message.append(f"{t}\n{l}")
 
     return message
+
+def read_stock_info_json():
+    return read_from_json(json_file_path=STOCK_INFO_JSON)
