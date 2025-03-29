@@ -9,13 +9,14 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 import os
 from file_io import read_from_json , read_lastest_heat_report
 from stock_rules import qualified_stocks
+import time
 
 ROOT = os.path.dirname(__file__)
 TOKEN = os.path.join(ROOT,"token.json")
 RS_REPORT = os.path.join(ROOT,"rs_report")
 PICTURE_PATH = os.path.join(ROOT,"picture","rs_picture")
 HEAT_REPORT = os.path.join(RS_REPORT,"heat_rank.csv")
-
+INDEX_PIC_PATH = os.path.join(ROOT,"market_index.png")
 
 def get_picture_path():
     
@@ -36,6 +37,11 @@ async def on_ready():
 async def TodayStock(ctx):
     pictures = get_picture_path()
     heat = read_lastest_heat_report()
+
+    if os.path.exists(INDEX_PIC_PATH):
+        pic = discord.File(INDEX_PIC_PATH)
+        await ctx.send(file=pic)
+        time.sleep(0.5)
 
     for name,path in pictures:
         if not os.path.exists(path):
