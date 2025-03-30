@@ -17,6 +17,7 @@ RS_REPORT = os.path.join(ROOT,"rs_report")
 PICTURE_PATH = os.path.join(ROOT,"picture","rs_picture")
 HEAT_REPORT = os.path.join(RS_REPORT,"heat_rank.csv")
 INDEX_PIC_PATH = os.path.join(ROOT,"market_index.png")
+MARKET_PIC_PATH = os.path.join(ROOT,"ath_atl_data.png")
 
 def get_picture_path():
     
@@ -38,6 +39,11 @@ async def TodayStock(ctx):
     pictures = get_picture_path()
     heat = read_lastest_heat_report()
 
+    if os.path.exists(MARKET_PIC_PATH):
+        pic = discord.File(MARKET_PIC_PATH)
+        await ctx.send(file=pic)
+        time.sleep(0.5)
+        
     if os.path.exists(INDEX_PIC_PATH):
         pic = discord.File(INDEX_PIC_PATH)
         await ctx.send(file=pic)
