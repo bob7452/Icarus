@@ -1,6 +1,7 @@
 import sqlite3
 import os
 from pandas import DataFrame
+import pandas as pd
 
 OPTION_DATABASE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)),"database","option_data.db")
 
@@ -41,6 +42,12 @@ def insert_option_db(df : DataFrame):
     conn = sqlite3.connect(OPTION_DATABASE_PATH)
     df.to_sql("option_snapshot", conn, if_exists="append", index=False)
     conn.close()
+
+def fetch_data_from_option_db(query : str) -> DataFrame:
+    conn = sqlite3.connect(OPTION_DATABASE_PATH)
+    df = pd.read_sql_query(query, conn)
+    conn.close()
+    return df
 
 if __name__ == "__main__":
     print(OPTION_DATABASE_PATH)
