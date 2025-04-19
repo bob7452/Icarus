@@ -17,20 +17,24 @@ def exdays(cur_date : datetime , exp_date : str):
     return (exp- cur_date).days / 365.0
     
 def save_option_snap(today:datetime):
+    print("save option")
     option_snapshots = []
 
     for stock_name in OPTION_LIST:
+        print(f"stock name : {stock_name}")
         ticker = yf.Ticker(stock_name)
         options = ticker.options
         current_stock_price = ticker.history(period="1d")['Close'].iloc[0]
         last_trade_day = ticker.history(period="1d").index[0]
         year, month, day = last_trade_day.year, last_trade_day.month, last_trade_day.day
         
-        if datetime(year=year,month=month,day=day,hour=16) != today:
-            return
         
         for exp_date in options:
-            option_chain  = ticker.option_chain(exp_date)
+            try:
+                option_chain  = ticker.option_chain(exp_date)
+            except Exception as e:
+                print(f"try to download {exp_date} option fail , skip it")
+                continue
             chains = []
             call_chain = option_chain.calls['strike']
             put_chain = option_chain.puts['strike']
@@ -89,7 +93,10 @@ def save_option_snap(today:datetime):
                     })
 
     df = pd.DataFrame(option_snapshots)
-    insert_option_db(df)
+    try:
+        insert_option_db(df)
+    except Exception as e:
+        print(e)
 
 if __name__ == "__main__":
     save_option_snap()
