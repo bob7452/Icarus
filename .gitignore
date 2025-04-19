@@ -6,6 +6,7 @@ report/
 candles.json
 stock_info_*.json
 *.png
+*.jpg
 *.csv
 token.json
 run_rebot.log
@@ -13,3 +14,4 @@ main.py
 logs/
 database/
 *.txt
+*.json
