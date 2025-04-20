@@ -14,7 +14,7 @@ TOKEN = os.path.join(ROOT,"token.json")
 RS_REPORT = os.path.join(ROOT,"rs_report")
 PICTURE_PATH = os.path.join(ROOT,"picture","rs_picture")
 
-def get_context():
+def get_content():
     today = datetime.today().strftime("%Y-%m-%d")
 
     filtered_stocks = qualified_stocks()
@@ -32,8 +32,10 @@ def get_context():
     + ["!TodayStock"]
 
 
-def chat(chanel_list,authorization_list):
-    stock_names = get_context()
+def chat(contents:list):
+    token_from_json = read_from_json(TOKEN) 
+    chanel_list = ["1302051093596868658"]
+    authorization_list = [token_from_json['discord_channel_token']]
 
     for authorization in authorization_list:
         header = {
@@ -44,9 +46,9 @@ def chat(chanel_list,authorization_list):
 
 
         for chanel_id in chanel_list:
-            for stock_name in stock_names:
+            for content in contents:
                 msg = {
-                    "content": stock_name,
+                    "content": content,
                     "nonce": "82329451214{}33232234".format(random.randrange(0, 1000)),
                     "tts": False,
                 }
@@ -62,15 +64,9 @@ def chat(chanel_list,authorization_list):
 
 
 if __name__ == "__main__":
-    token_from_json = read_from_json(TOKEN) 
-
-    chanel_list = ["1302051093596868658"]
-    authorization_list = [token_from_json['discord_channel_token']]
-    # while True:
     try:
-        chat(chanel_list,authorization_list)
-        # sleeptime = random.randrange(10, 30)
-        # time.sleep(sleeptime)
+        contents = get_content()
+        chat(contents=contents)
     except Exception as e:
         print(f"error occur : {e}")
-        # break
+

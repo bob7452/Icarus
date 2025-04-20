@@ -1,64 +1,51 @@
 import yfinance as yf
-from datetime import datetime , timedelta
 import pandas as pd
-from .option_calculate import OptionInput,OptionGreeks,implied_volatility,calculate_greeks
-from .sql_lib import insert_option_db
+from datetime import datetime, timedelta
+from .option_calculate import OptionInput, calculate_greeks, implied_volatility
+from .sql_lib import insert_option_db, get_oi_snapshot_by_date, get_latest_available_date
 
-OPTION_LIST = ["SPY",
-               "^VIX"]
+class DataNotUpdatedError(Exception):
+    """Raised when option data has not been updated on remote source."""
+    pass
 
-def exdays(cur_date : datetime , exp_date : str):
-    year,mom,day = exp_date.split("-")
-    day = int(day)
-    mom = int(mom)
-    year = int(year)
-            
-    exp = datetime(year, mom, day) + timedelta(hours = 16)
-    return (exp- cur_date).days / 365.0
-    
-def save_option_snap(today:datetime):
-    print("save option")
+OPTION_LIST = ["SPY", "^VIX"]
+
+def exdays(cur_date: datetime, exp_date: str):
+    year, mom, day = map(int, exp_date.split("-"))
+    exp = datetime(year, mom, day) + timedelta(hours=16)
+    return (exp - cur_date).days / 365.0
+
+def fetch_option_snapshot(today: datetime) -> pd.DataFrame:
     option_snapshots = []
 
     for stock_name in OPTION_LIST:
-        print(f"stock name : {stock_name}")
+        print(f"Fetching: {stock_name}")
         ticker = yf.Ticker(stock_name)
         options = ticker.options
-        current_stock_price = ticker.history(period="1d")['Close'].iloc[0]
-        last_trade_day = ticker.history(period="1d").index[0]
-        year, month, day = last_trade_day.year, last_trade_day.month, last_trade_day.day
-        
-        
+
+        try:
+            current_stock_price = ticker.history(period="1d")['Close'].iloc[0]
+        except Exception as e:
+            print(f"⚠️ Failed to fetch current price for {stock_name}: {e}")
+            continue
+
         for exp_date in options:
             try:
-                option_chain  = ticker.option_chain(exp_date)
-            except Exception as e:
-                print(f"try to download {exp_date} option fail , skip it")
+                option_chain = ticker.option_chain(exp_date)
+            except Exception:
+                print(f"⚠️ Failed to fetch chain for {exp_date}, skipping.")
                 continue
-            chains = []
-            call_chain = option_chain.calls['strike']
-            put_chain = option_chain.puts['strike']
-            chains.append(("call",call_chain))
-            chains.append(("put",put_chain))
 
-            for type,chain in chains:
-                
-                for price in chain:
-                    if "call" == type:
-                        selected_option = option_chain.calls[chain == price]
-                    else:
-                        selected_option = option_chain.puts[chain == price]
+            for opt_type, chain in [("call", option_chain.calls), ("put", option_chain.puts)]:
+                for _, row in chain.iterrows():
+                    k = row['strike']
+                    oi = row['openInterest']
+                    volume = row['volume']
+                    market_price = row['lastPrice']
+                    t = exdays(today, exp_date)
 
-                    print(selected_option)
-
-                    k = selected_option['strike'].iloc[0]
-                    oi = selected_option['openInterest'].iloc[0]
-                    volume = selected_option['volume'].iloc[0]
-                    market_price = selected_option['lastPrice'].iloc[0]
-
-                    t = exdays(today,exp_date)
                     opt = OptionInput(
-                        option_type=type,
+                        option_type=opt_type,
                         S=current_stock_price,
                         K=k,
                         T=t,
@@ -67,20 +54,18 @@ def save_option_snap(today:datetime):
                     )
 
                     iv = implied_volatility(opt)
-                    if iv:
-                        greek = calculate_greeks(opt,iv)
-                        print(greek)
-                    else:
-                        print("cal iv fail")
+                    if not iv:
                         continue
-                    
+
+                    greek = calculate_greeks(opt, iv)
+
                     option_snapshots.append({
-                        "symbol":stock_name,
-                        "date":today,
-                        "dte":round(t*365),
+                        "symbol": stock_name,
+                        "date": today,
+                        "dte": round(t * 365),
                         "expiration": exp_date,
                         "strike": k,
-                        "option_type": type,
+                        "option_type": opt_type,
                         "iv": iv,
                         "delta": float(greek.Delta),
                         "gamma": float(greek.Gamma),
@@ -92,11 +77,71 @@ def save_option_snap(today:datetime):
                         "last_price": market_price,
                     })
 
-    df = pd.DataFrame(option_snapshots)
-    try:
-        insert_option_db(df)
-    except Exception as e:
-        print(e)
+    return pd.DataFrame(option_snapshots)
 
-if __name__ == "__main__":
-    save_option_snap()
+def is_oi_updated(today_df: pd.DataFrame, yesterday_df: pd.DataFrame) -> bool:
+    # If there's no previous data, treat as updated (first-time run)
+    if yesterday_df.empty:
+        return True
+
+    # Merge today's data with yesterday's data on key option attributes
+    merged = today_df.merge(
+        yesterday_df,
+        on=["symbol", "strike", "option_type", "expiration"],
+        suffixes=('', '_y'),
+        how="left"
+    )
+
+    # Check if any options exist in today's data but not in yesterday's (new contracts)
+    if merged['oi_y'].isna().any():
+        print("New option contracts detected (not present yesterday).")
+        return True
+
+    # If all contracts existed yesterday, check if any open interest (OI) has changed
+    changed = (merged['oi'] != merged['oi_y']).any()
+    if changed:
+        print("OI values changed.")
+    else:
+        print("No OI changes detected. Data likely not updated yet.")
+
+    return changed
+
+def is_all_symbol_updated(today_df: pd.DataFrame, yesterday_df: pd.DataFrame) -> bool:
+    symbols = today_df['symbol'].unique()
+    for sym in symbols:
+        today_sym_df = today_df[today_df['symbol'] == sym]
+        yest_sym_df = yesterday_df[yesterday_df['symbol'] == sym]
+        if not is_oi_updated(today_sym_df, yest_sym_df):
+            print(f"Symbol {sym} has not updated yet.")
+            return False
+    return True
+
+
+def save_option_snap(today: datetime):
+    print("Starting option snapshot")
+
+    df_today = fetch_option_snapshot(today)
+    if df_today.empty:
+        print("No data fetched, skipping.")
+        return
+
+    # Step 1: find the actual last recorded day in DB
+    symbol_ref = "SPY"  # Pick one to query for last available date
+    prev_date = get_latest_available_date(symbol_ref)
+
+    if not prev_date:
+        print(f"No previous data found in DB for {symbol_ref}, assuming first-time run.")
+        write_flag = True
+    else:
+        df_yesterday = get_oi_snapshot_by_date(symbols=OPTION_LIST, date=prev_date)
+        write_flag = is_all_symbol_updated(df_today, df_yesterday)
+
+    if not write_flag:
+        print(f"OI not updated for {today.date()} (vs DB date {prev_date.date()}). Skipping DB write.")
+        raise DataNotUpdatedError("Some symbols not updated yet.")
+
+    try:
+        insert_option_db(df_today)
+        print(f"Option snapshot for {today.date()} saved successfully.")
+    except Exception as e:
+        print(f"Failed to insert snapshot: {e}")

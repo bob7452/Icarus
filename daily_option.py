@@ -1,12 +1,19 @@
-from option.save_option_snapshot import save_option_snap
+from option.save_option_snapshot import save_option_snap,DataNotUpdatedError
+from option.ansys_skew import process_snapshot_analysis
 from datetime import timedelta, datetime
 from pandas_market_calendars import get_calendar
 from pathlib import Path
 import sys
 import json
 import traceback
+import time
+import yfinance as yf
+from update_news import chat
 
 CACHE_FILE = Path("option_task_cache.json")
+MAX_RETRIES = 12 
+RETRY_INTERVAL = 300 #seconds
+
 
 def is_holiday(date: datetime) -> bool:
     nyse = get_calendar('NYSE')
@@ -39,6 +46,24 @@ def get_latest_trading_day(before: datetime) -> datetime:
         raise ValueError("No valid trading day found")
     return valid_days[-1].to_pydatetime().replace(hour=16, minute=0, second=0, microsecond=0)
 
+def get_spy_price_at(date_str: str) -> float:
+    """
+    取得指定日期 SPY 收盤價
+    :param date_str: 格式為 'YYYY-MM-DD'
+    :return: float 收盤價
+    """
+    date = datetime.strptime(date_str, "%Y-%m-%d")
+    next_day = date + timedelta(days=1)
+
+    ticker = yf.Ticker("SPY")
+    df = ticker.history(start=date_str, end=next_day.strftime("%Y-%m-%d"))
+    
+    if df.empty:
+        raise ValueError(f"No data found for {date_str}")
+
+    return df['Close'].iloc[0]
+
+
 if __name__ == "__main__":
     today_dt = datetime.today()
     cached_day = load_cached_day()
@@ -60,10 +85,32 @@ if __name__ == "__main__":
         sys.exit(1)
 
     # Run the task
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            print(f"[Attempt {attempt}] Executing snapshot task...")
+            save_option_snap(today=process_day)
+            delete_cache()
+            break
+        except DataNotUpdatedError as e:
+            print(f"Data not ready: {e}")
+            if attempt < MAX_RETRIES:
+                print(f"Will retry in {RETRY_INTERVAL} seconds...\n")
+                time.sleep(RETRY_INTERVAL)
+            else:
+                print("Max retries reached. Giving up.")
+                sys.exit(2)
+        except Exception:
+            print("Save Snapshot Task execution failed with unexpected error:")
+            traceback.print_exc()
+            sys.exit(1)
+
     try:
-        save_option_snap(today=process_day)
-        delete_cache()
-    except Exception:
-        print("Task execution failed")
-        traceback.print_exc()
-        sys.exit(1)
+        process_snapshot_analysis(today=process_day,
+                                symbol="SPY",
+                                underlying_price=get_spy_price_at(process_day.strftime("%Y-%m-%d")))
+        chat(contents=["!TodaySkew"])
+    except Exception as e:
+            print("Process Skew Task execution failed with unexpected error:")
+            traceback.print_exc()
+            sys.exit(1)
+    

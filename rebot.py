@@ -18,6 +18,7 @@ PICTURE_PATH = os.path.join(ROOT,"picture","rs_picture")
 HEAT_REPORT = os.path.join(RS_REPORT,"heat_rank.csv")
 INDEX_PIC_PATH = os.path.join(ROOT,"market_index.png")
 MARKET_PIC_PATH = os.path.join(ROOT,"ath_atl_data.png")
+SKEW_PIC_PATH = os.path.join(ROOT,"option_skew_with_diff.png")
 
 def get_picture_path():
     
@@ -56,6 +57,13 @@ async def TodayStock(ctx):
             await ctx.send(f"!!! {name} --- Today HEAT --- {name}!!!")
         pic = discord.File(path)
         await ctx.send(file=pic)    
+
+@bot.command()
+async def TodaySkew(ctx):
+    if os.path.exists(SKEW_PIC_PATH):
+        pic = discord.File(SKEW_PIC_PATH)
+        await ctx.send(file=pic)
+        time.sleep(0.5)
 
 
 
