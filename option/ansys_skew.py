@@ -58,19 +58,22 @@ def compute_skew_from_snapshot(
         put10 = find_put_by_delta(-0.10)
         put25 = find_put_by_delta(-0.25,(-0.3,-0.2))
 
-        print(f"\n🟡 {expiration}")
-        print("ATM Put:", atm_put[['strike', 'delta', 'iv']].to_dict(orient='records'))
-        print("Put10D :", put10[['strike', 'delta', 'iv']].to_dict(orient='records'))
-        print("Put25D :", put25[['strike', 'delta', 'iv']].to_dict(orient='records'))
+        try:
+            print(f"\n🟡 {expiration}")
+            print("ATM Put:", atm_put[['strike', 'delta', 'iv']].to_dict(orient='records'))
+            print("Put10D :", put10[['strike', 'delta', 'iv']].to_dict(orient='records'))
+            print("Put25D :", put25[['strike', 'delta', 'iv']].to_dict(orient='records'))
 
-        row = {
-            "expiration": expiration,
-            "put_10delta_skew": float(put10['iv'].values[0] - atm_put['iv'].values[0]) if not put10.empty and not atm_put.empty else None,
-            "put_25delta_skew": float(put25['iv'].values[0] - atm_put['iv'].values[0]) if not put25.empty and not atm_put.empty else None,
-            "call_put_skew": float(atm_call['iv'].values[0] - atm_put['iv'].values[0]) if not atm_call.empty and not atm_put.empty else None
-        }
+            row = {
+                "expiration": expiration,
+                "put_10delta_skew": float(put10['iv'].values[0] - atm_put['iv'].values[0]) if not put10.empty and not atm_put.empty else None,
+                "put_25delta_skew": float(put25['iv'].values[0] - atm_put['iv'].values[0]) if not put25.empty and not atm_put.empty else None,
+                "call_put_skew": float(atm_call['iv'].values[0] - atm_put['iv'].values[0]) if not atm_call.empty and not atm_put.empty else None
+            }
 
-        results.append(row)
+            results.append(row)
+        except Exception as e:
+            continue
 
     skew_df = pd.DataFrame(results).sort_values("expiration")
     return skew_df
@@ -94,7 +97,7 @@ def load_latest_skew_diff() -> pd.DataFrame:
         'put_10delta_skew_diff': g['put_10delta_skew'].iloc[-1] - g['put_10delta_skew'].iloc[-2],
         'put_25delta_skew_diff': g['put_25delta_skew'].iloc[-1] - g['put_25delta_skew'].iloc[-2],
         'call_put_skew_diff': g['call_put_skew'].iloc[-1] - g['call_put_skew'].iloc[-2],
-        'latest_snapshot': g['snapshot_date'].iloc[-1]
+        'latest_snapshot': g['snapshot_date'].iloc[-2]
     })).reset_index()
 
     return diff_df
@@ -184,4 +187,4 @@ def process_skew(today: datetime, symbol: str, underlying_price: float) -> pd.Da
     return skew_df
 
 if __name__ == "__main__":
-    process_snapshot_analysis(datetime(2025,4,15,16,0,0),"SPY",537.61)
+    process_snapshot_analysis(datetime(2025,4,22,16,0,0),"SPY",527.25)

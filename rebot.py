@@ -19,6 +19,7 @@ HEAT_REPORT = os.path.join(RS_REPORT,"heat_rank.csv")
 INDEX_PIC_PATH = os.path.join(ROOT,"market_index.png")
 MARKET_PIC_PATH = os.path.join(ROOT,"ath_atl_data.png")
 SKEW_PIC_PATH = os.path.join(ROOT,"option_skew_with_diff.png")
+VIX_TERM_PIC_PATH = os.path.join(ROOT,"vix_term.png")
 
 def get_picture_path():
     
@@ -64,6 +65,15 @@ async def TodaySkew(ctx):
         pic = discord.File(SKEW_PIC_PATH)
         await ctx.send(file=pic)
         time.sleep(0.5)
+
+@bot.command()
+async def TodayVixTerm(ctx):
+    if os.path.exists(VIX_TERM_PIC_PATH):
+        pic = discord.File(VIX_TERM_PIC_PATH)
+        await ctx.send(file=pic)
+        time.sleep(0.5)
+
+
 
 
 

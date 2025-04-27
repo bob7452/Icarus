@@ -40,12 +40,13 @@ def delete_cache():
         print("Deleted processed task cache")
 
 def get_latest_trading_day(before: datetime) -> datetime:
-    nyse = get_calendar('NYSE')
-    valid_days = nyse.valid_days(end_date=before, start_date=before - timedelta(days=10))
-    if valid_days.empty:
-        raise ValueError("No valid trading day found")
-    return valid_days[-1].to_pydatetime().replace(hour=16, minute=0, second=0, microsecond=0)
-
+    today = datetime.today().replace(hour=16,minute=0,second=0,microsecond=0)
+    if today.weekday() == 0:
+        return today - timedelta(days=3)
+    else:
+        return today - timedelta(days=1)
+    
+    
 def get_spy_price_at(date_str: str) -> float:
     """
     取得指定日期 SPY 收盤價
@@ -72,7 +73,8 @@ if __name__ == "__main__":
         process_day = cached_day
     else:
         process_day = get_latest_trading_day(today_dt)
-
+	
+    
     # Skip if the day to process is a holiday (safety check)
     if is_holiday(process_day):
         print(f"[{process_day}] is a holiday. Skipping.")

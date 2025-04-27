@@ -13,6 +13,7 @@ OPTION_LIST = ["SPY", "^VIX"]
 def exdays(cur_date: datetime, exp_date: str):
     year, mom, day = map(int, exp_date.split("-"))
     exp = datetime(year, mom, day) + timedelta(hours=16)
+    print(exp)
     return (exp - cur_date).days / 365.0
 
 def fetch_option_snapshot(today: datetime) -> pd.DataFrame:
@@ -30,6 +31,7 @@ def fetch_option_snapshot(today: datetime) -> pd.DataFrame:
             continue
 
         for exp_date in options:
+
             try:
                 option_chain = ticker.option_chain(exp_date)
             except Exception:
@@ -43,6 +45,9 @@ def fetch_option_snapshot(today: datetime) -> pd.DataFrame:
                     volume = row['volume']
                     market_price = row['lastPrice']
                     t = exdays(today, exp_date)
+
+                    if t is None:
+                        continue
 
                     opt = OptionInput(
                         option_type=opt_type,

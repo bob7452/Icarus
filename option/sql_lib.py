@@ -97,7 +97,7 @@ def get_latest_available_date(symbol: str) -> datetime | None:
     """
     df = fetch_data_from_option_db(query)
     result = df["max_date"].iloc[0]
-    return datetime.strptime(result, "%Y-%m-%d") if pd.notnull(result) else None
+    return datetime.strptime(result, "%Y-%m-%d %H:%M:%S") if pd.notnull(result) else None
 
 
 
