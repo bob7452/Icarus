@@ -84,14 +84,13 @@ def main(date : str):
     conn.close()
 
 def plot_vix_term():
-
     # === 設定參數 ===
     SLOPE_WARNING_THRESHOLD = 0.2  # Spread每日加速斜率警戒線
     SPREAD_LEVELS = {
-        "normal": (float('-inf'), 1.0),      # Spread <= 1.0
-        "caution": (1.0, 3.0),                # 1.0 < Spread <= 3.0
-        "warning": (3.0, 5.0),                # 3.0 < Spread <= 5.0
-        "danger": (5.0, float('inf'))          # Spread > 5.0
+        "normal": (float('-inf'), 1.0),
+        "caution": (1.0, 3.0),
+        "warning": (3.0, 5.0),
+        "danger": (5.0, float('inf'))
     }
     SPREAD_COLORS = {
         "normal": "black",
@@ -135,6 +134,12 @@ def plot_vix_term():
     today_level = classify_spread(today_spread)
     color = SPREAD_COLORS.get(today_level, "black")
 
+    # === VIX 當日與前一日的變化
+    vix_today = df.iloc[-1]['vix']
+    vix_yesterday = df.iloc[-2]['vix']
+    delta_vix = vix_today - vix_yesterday
+    vix_trend = "↑" if delta_vix > 0 else "↓" if delta_vix < 0 else "→"
+
     # === 畫圖
     plt.figure(figsize=(12, 6))
 
@@ -149,15 +154,19 @@ def plot_vix_term():
     # 標題、副標題
     title_text = f"7-Day VIX Spread Trend (VIX - VIX3M)\nToday Level: {today_level.upper()}"
     if len(df) < 7:
-        title_text += "  ⚠️ (資料不足7天)"
+        title_text += "  ⚠️ (data < 7days)"
     plt.title(title_text, color=color, fontsize=16)
+
+    # 顯示 VIX 當日變化
+    vix_info = f"VIX: {vix_today:.2f} ({vix_trend}{abs(delta_vix):.2f} vs yesterday)"
+    plt.figtext(0.5, 0.95, vix_info, wrap=True, horizontalalignment='center', fontsize=11, color='blue')
 
     plt.xlabel("Date")
     plt.ylabel("Spread")
     plt.grid(True)
     plt.legend()
 
-    # === 底部警告字
+    # === 底部加註警示或資訊
     if slope > SLOPE_WARNING_THRESHOLD:
         warning_text = f"⚠️ Spread accelerating: slope={slope:.2f} pt/day"
         plt.figtext(0.5, 0.01, warning_text, wrap=True, horizontalalignment='center', color='red', fontsize=12)
@@ -165,17 +174,17 @@ def plot_vix_term():
         info_text = f"Spread trend slope: {slope:.2f} pt/day"
         plt.figtext(0.5, 0.01, info_text, wrap=True, horizontalalignment='center', color='black', fontsize=10)
 
-    plt.tight_layout(rect=[0, 0.03, 1, 1])
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.savefig("vix_term.png")
-
+   
 
 
 if __name__ == "__main__":
-    process_day = datetime.today().replace(hour=16,minute=0,second=0,microsecond=0).strftime("%Y-%m-%d")
+    process_day = datetime.today()
     if is_holiday(process_day):
         print(f"[{process_day}] is a holiday. Skipping.")
         sys.exit(1)
-    
-    main()
+    today_str = process_day.strftime("%Y-%m-%d")
+    main(today_str)
     plot_vix_term()
     chat(contents=["!TodayVixTerm"])
