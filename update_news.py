@@ -32,9 +32,9 @@ def get_content():
     + ["!TodayStock"]
 
 
-def chat(contents:list):
+def chat(contents:list , chanel_list : list = ["1302051093596868658"]):
     token_from_json = read_from_json(TOKEN) 
-    chanel_list = ["1302051093596868658"]
+    # chanel_list = ["1302051093596868658"]
     authorization_list = [token_from_json['discord_channel_token']]
 
     for authorization in authorization_list:
@@ -49,7 +49,7 @@ def chat(contents:list):
             for content in contents:
                 msg = {
                     "content": content,
-                    "nonce": "82329451214{}33232234".format(random.randrange(0, 1000)),
+                    "nonce": "82329451214{}32234".format(random.randrange(0, 1000000)),
                     "tts": False,
                 }
 

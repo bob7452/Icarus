@@ -1,4 +1,4 @@
-from file_io import read_lastest_rs_report
+from file_io import read_lastest_rs_report , read_lastest_heat_report
 
 def qualified_stocks():
     df = read_lastest_rs_report()
@@ -32,3 +32,9 @@ def rs_above_90():
     ]
 
     return filtered_stocks
+
+def heat_rank_rs90():
+    heat_df = read_lastest_heat_report()
+    rs_df = rs_above_90()['name'].to_list()
+
+    return list(set(heat_df) & set(rs_df))

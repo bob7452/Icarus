@@ -6,7 +6,7 @@ RS_REPORT = os.path.join(ROOT,"rs_report")
 HEAT_REPORT = os.path.join(RS_REPORT,"heat_rank.csv")
 NEW_REPORT = os.path.join(RS_REPORT,"new.csv")
 STOCK_INFO_JSON = os.path.join(ROOT,"stock_info.json")
-
+PRICE_INFO_JSON = os.path.join(ROOT,"candles.json")
 
 def read_from_json(json_file_path: str) -> None:
     """
@@ -68,3 +68,7 @@ def read_lastest_news_report() -> list[str]:
 
 def read_stock_info_json():
     return read_from_json(json_file_path=STOCK_INFO_JSON)
+
+
+def read_stock_price_json():
+    return read_from_json(json_file_path=PRICE_INFO_JSON)
