@@ -6,6 +6,7 @@ if [ $? -ne 0 ]; then
     echo "Today is Holiday~~~"
     exit 1
 fi
+cp -f datasheet.csv ~/GoogleDrive/datasheet.csv
 python3 heat_parser.py
 python3 gen_rs_picture.py
 python3 market_index.py

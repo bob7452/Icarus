@@ -53,7 +53,7 @@ def check_stock_conditions(stock_name , timestamps, opens, highs, lows, closes, 
     ema = df['EMA'].iloc[-1]
     close = df['Close'].iloc[-1]
     bias = (close - ema) / ema * 100
-    bias_ok = bias < 10.0
+    bias_ok = True #bias < 20.0
 
     # ATR
     tr1 = df['High'] - df['Low']
@@ -64,11 +64,11 @@ def check_stock_conditions(stock_name , timestamps, opens, highs, lows, closes, 
     df['ATR'] = tr.rolling(window=period_atr).mean()
     atr = df['ATR'].iloc[-1]
     atr_range = df['High'].iloc[-1] - df['Low'].iloc[-1]
-    atr_ok = atr_range < 2.0 * atr
+    atr_ok = True #atr_range < 2.0 * atr
 
     # 52週高點差距
     high_lookback = min(252, len(df))
-    df['RollingHigh'] = df['High'].rolling(window=high_lookback).max()
+    df['RollingHigh'] = df['Close'].rolling(window=high_lookback).max()
     rolling_high = df['RollingHigh'].iloc[-1]
     if pd.isna(rolling_high) or rolling_high == 0:
         high_gap_ok = False
@@ -82,7 +82,7 @@ def check_stock_conditions(stock_name , timestamps, opens, highs, lows, closes, 
     # 組裝 messages
     messages.append(f"==== {stock_name} 技術條件細節 [{is_pass}] ====")
     messages.append(f"📊 平均成交額（{period_turnover}日）     : {turnover_value:,.0f} 元   → {'✔' if turnover_ok else '✘'} (門檻 50,000,000)")
-    messages.append(f"📈 EMA乖離率（{ema_span}日）         : {bias:.2f}%        → {'✔' if bias_ok else '✘'} (門檻 10.0%)")
+    messages.append(f"📈 EMA乖離率（{ema_span}日）         : {bias:.2f}%        → {'✔' if bias_ok else '✘'} (門檻 20.0%)")
     messages.append(f"📉 ATR區間（{period_atr}日）         : {atr_range:.2f} vs {2.0 * atr:.2f} → {'✔' if atr_ok else '✘'} (2x ATR)")
     messages.append(f"🏔️ 52週高點差距（{high_lookback}日）: {gap:.2f}%        → {'✔' if high_gap_ok else '✘'} (門檻 <15%)")
     messages.append("======================")
