@@ -135,55 +135,71 @@ df["turning_up"] = (df["mspi_ema"].shift(1) < neutral_q) & (df["mspi_ema"] >= ne
 df["turning_down"] = (df["mspi_ema"].shift(1) > neutral_q) & (df["mspi_ema"] <= neutral_q)
 
 # Step 11: prepare plot - MSPI (EMA) main line, background by phase, inline event markers
-plt.figure(figsize=(14,6))
-plt.plot(df["start_date"], df["mspi_ema"], color="purple", linewidth=2, label=f"MSPI (EMA{EMA_SPAN})")
+
+# **優化 1: 增加圖表尺寸 (更寬)**
+plt.figure(figsize=(18, 8)) # 顯著增加寬度 (18)
+ax = plt.gca()
+ax.grid(axis='y', linestyle='--', alpha=0.5)
+
+# **修正 1: EMA 線條改回紫色**
+plt.plot(df["start_date"], df["mspi_ema"], color="purple", linewidth=2.5, label=f"MSPI (EMA{EMA_SPAN})")
 
 # background by phase groups
 phase_colors = {
-    "Capitulation (Extreme Low)": "#D35400",  # Deep Red/Orange (高警示恐懼)
-    "Contraction (Low)":          "#F1C40F",  # Medium Yellow (壓力/謹慎)
-    "Neutral (Mid)":              "#ECF0F1",  # Very Light Gray (中性)
-    "Expansion (High)":           "#27AE60",  # Deep Green (良性增長)
-    "Overheat (Extreme High)":    "#9B59B6"   # Bright Purple (狂熱/風險警示)
+    "Capitulation (Extreme Low)": "#E74C3C",  # Red
+    "Contraction (Low)":          "#F39C12",  # Orange
+    "Neutral (Mid)":              "#ECF0F1",  # Light Gray
+    "Expansion (High)":           "#2ECC71",  # Green
+    "Overheat (Extreme High)":    "#9B59B6"   # Purple
 }
-# draw shading segment by contiguous groups (using simplified logic for drawing)
 current_phase = None
 start_date = None
 for i, row in df.reset_index().iterrows():
-    if current_phase is None:
+    if current_phase is None or row["phase"] != current_phase:
+        if current_phase is not None:
+            end_date = df.iloc[i-1]["start_date"] if i > 0 else start_date
+            plt.axvspan(start_date, end_date, facecolor=phase_colors.get(current_phase, "#f0f0f0"), alpha=0.15, zorder=0)
+
         current_phase = row["phase"]
         start_date = row["start_date"]
     
-    # Check if phase changes or end of data
-    if row["phase"] != current_phase or i == len(df)-1:
-        end_date = row["start_date"] if i == len(df)-1 else df.iloc[i-1]["start_date"]
-        
-        # Draw the segment
-        plt.axvspan(start_date, end_date, facecolor=phase_colors.get(current_phase,"#f0f0f0"), alpha=0.12, zorder=0)
+    if i == len(df)-1 and current_phase is not None:
+        plt.axvspan(start_date, row["start_date"], facecolor=phase_colors.get(current_phase, "#f0f0f0"), alpha=0.15, zorder=0)
 
-        # Update for new segment
-        current_phase = row["phase"]
-        start_date = row["start_date"]
 
 # inline event markers
 plt.scatter(df.loc[df["atl_event"], "start_date"], df.loc[df["atl_event"], "mspi_ema"],
             color="blue", s=60, zorder=6, label="ATL Event (Raw > q95)")
+# **修正 2: ATH Overheat 點改回橙色**
 plt.scatter(df.loc[df["ath_event"], "start_date"], df.loc[df["ath_event"], "mspi_ema"],
-            color="orange", s=60, zorder=6, label="ATH Event (Raw > q95)")
+            color="orange", s=60, zorder=6, label="ATH Event (Raw > q95)") 
 
 # turning markers
 plt.scatter(df.loc[df["turning_up"], "start_date"], df.loc[df["turning_up"], "mspi_ema"],
-            color="green", s=90, marker="^", zorder=7, label=f"Turning Up (Cross > Q{mspi_q.index[2]*100:.0f})")
+            color="green", s=90, marker="^", zorder=7, label=f"Turning Up (Cross > Q50)")
 plt.scatter(df.loc[df["turning_down"], "start_date"], df.loc[df["turning_down"], "mspi_ema"],
-            color="red", s=90, marker="v", zorder=7, label=f"Turning Down (Cross < Q{mspi_q.index[2]*100:.0f})")
+            color="red", s=90, marker="v", zorder=7, label=f"Turning Down (Cross < Q50)")
 
-plt.axhline(neutral_q, color="gray", linestyle="--", linewidth=1, label=f"Neutral Line (Q{mspi_q.index[2]*100:.0f})")
-plt.title(f"MSPI v4.5 (Auto-calibrated w={best_w:.2f}) — Last {WINDOW_DAYS} days", fontsize=14)
-plt.xlabel("Date")
-plt.ylabel("MSPI (EMA) - Z-Score Based")
-plt.legend(loc="upper left")
-plt.tight_layout()
-plt.show()
+plt.axhline(neutral_q, color="gray", linestyle="--", linewidth=1, label="Neutral Line (Q50)")
+
+plt.title(f"MSPI v4.5 (Auto-calibrated w={best_w:.2f}) — Last {WINDOW_DAYS} days | Max Corr: {best_corr:.3f}", fontsize=16)
+plt.xlabel("Date", fontsize=12)
+plt.ylabel("MSPI (EMA) - Z-Score Based", fontsize=12)
+
+# **優化 2: 調整圖例位置和欄數**
+plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=4, frameon=False, fontsize=10)
+
+# **優化 3: X 軸標籤設置為水平，並減少標籤數量**
+from matplotlib.dates import YearLocator, MonthLocator, DateFormatter
+# 減少主要刻度的數量，例如每年或每季
+ax.xaxis.set_major_locator(MonthLocator(interval=4)) # 每 4 個月標記一次
+ax.xaxis.set_major_formatter(DateFormatter("%Y-%m-%d"))
+# **設定 rotation=0 (水平)**
+plt.xticks(rotation=0, ha='center') 
+
+# 調整佈局以容納下方的圖例和水平的 X 軸標籤
+plt.tight_layout(rect=[0, 0.15, 1, 1]) 
+plt.savefig("mspi.png")
 
 # =======================================================
 # Step 12 (修正): OLS regression (Future Return ~ MSPI_ema)
@@ -212,7 +228,7 @@ plt.title(f"OLS Residuals: Future {FUTURE_DAYS}d Return ~ MSPI_ema")
 plt.xlabel("MSPI_ema")
 plt.ylabel("Residuals (Future Return)")
 plt.tight_layout()
-plt.show()
+#plt.show()
 
 # Step 14: save results
 out_path = "mspi_v4.5_optimized_result.csv"

@@ -98,4 +98,4 @@ if __name__ == "__main__":
     df = pd.read_csv("datasheet.csv")
     df = calculate_bear_risk_index(df).tail(240)
     plot_ath_atl_data(df)
-    plot_bear_risk_index(df)
+    #plot_bear_risk_index(df)
