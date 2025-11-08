@@ -97,7 +97,7 @@ def main():
         print("今天不是星期六。")
         return
 
-    stocks = heat_rank_rs90()
+    stocks = rs_above_90()['name'].to_list()
 
     info = read_stock_info_json()
     price = read_stock_price_json()
@@ -125,7 +125,7 @@ def main():
                                         volumes=volumes,)
 
             if not is_pass:
-                send_to_chat(message)
+                print(message)
                 #continue
             else:
                 print(message)
