@@ -8,7 +8,7 @@ import statsmodels.api as sm
 # Parameters (you can change)
 # ---------------------------
 INPUT_CSV = "datasheet.csv"
-WINDOW_DAYS = 1260       # recent window in days to analyze
+WINDOW_DAYS = 252       # recent window in days to analyze
 ROLL_WINDOW = 5          # smoothing for ATH/ATL counts (applied after Z-score)
 W_SEARCH = (0.01, 5.0, 0.05) # (start, end, step) grid for weight w (調整為更寬範圍，適應標準化後的指標)
 EMA_SPAN = 7             # EMA span for MSPI smoothing used in regression/plot

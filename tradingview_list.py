@@ -125,8 +125,8 @@ def main():
                                         volumes=volumes,)
 
             if not is_pass:
-                print(message)
-                continue
+                send_to_chat(message)
+                #continue
             else:
                 print(message)
                 send_to_chat(message)
