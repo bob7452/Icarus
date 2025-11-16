@@ -18,6 +18,7 @@ PICTURE_PATH = os.path.join(ROOT,"picture","rs_picture")
 HEAT_REPORT = os.path.join(RS_REPORT,"heat_rank.csv")
 INDEX_PIC_PATH = os.path.join(ROOT,"mspi.png")
 MARKET_PIC_PATH = os.path.join(ROOT,"ath_atl_data.png")
+WEEKLY_ATH_ATL_PIC_PATH = os.path.join(ROOT,"weekly_ath_atl_data_last_52_weeks.png")
 SKEW_PIC_PATH = os.path.join(ROOT,"option_skew_with_diff.png")
 VIX_TERM_PIC_PATH = os.path.join(ROOT,"vix_term.png")
 
@@ -45,7 +46,13 @@ async def TodayStock(ctx):
         pic = discord.File(MARKET_PIC_PATH)
         await ctx.send(file=pic)
         time.sleep(0.5)
+
+    if os.path.exists(WEEKLY_ATH_ATL_PIC_PATH):
+        pic = discord.File(WEEKLY_ATH_ATL_PIC_PATH)
+        await ctx.send(file=pic)
+        time.sleep(0.5)
         
+
     if os.path.exists(INDEX_PIC_PATH):
         pic = discord.File(INDEX_PIC_PATH)
         await ctx.send(file=pic)
