@@ -96,18 +96,24 @@ def search_ticker_info(name) -> Ticket:
         return value
 
     escaped_ticker = escape_ticker(name)
-    
-    try:
-        info = yf.Ticker(escaped_ticker)
+    from curl_cffi import requests
+    session = requests.Session(impersonate="chrome")
 
-        ticket = Ticket(
-            ticket=name,
-            sector=get_info_from_dict(info.info, "sector"),
-            industry=get_info_from_dict(info.info, "industry"),
-            marketCap=get_info_from_dict(info.info, "marketCap"),
-        )
-    except:
-        return None
+    for i in range(3):
+        try:
+            info = yf.Ticker(escaped_ticker,session=session)
+
+            ticket = Ticket(
+                ticket=name,
+                sector=get_info_from_dict(info.info, "sector"),
+                industry=get_info_from_dict(info.info, "industry"),
+                marketCap=get_info_from_dict(info.info, "marketCap"),
+            )
+        except Exception as e:
+            print(f"{name} error ouccrs {e}")
+            print(f"retry {i+1} times")
+            time.sleep(60)
+            return None
 
     return ticket
 

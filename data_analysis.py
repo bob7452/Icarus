@@ -6,6 +6,7 @@ process data
 from common_data_type import industry_group,market_group,sliced_candle_info,history_price_group
 from datetime import datetime , timedelta
 from get_stock_info import load_prices_from_yahoo , get_stock_history_price_data , get_total_stocks_basic_info , MARKET_CAP_100E
+from file_io import read_from_json , save_to_json
 import pandas as pd
 import numpy as np
 import os
@@ -22,9 +23,11 @@ def week_change(candles:sliced_candle_info) -> float:
     index = 0
     firday_last_week_timestamp = candles.this_week[1] - (86400 * 7)
     limit = datetime.fromtimestamp(candles.this_week[0] - (86400 * 7))
-    
+
     while True:
         now_date = datetime.fromtimestamp(firday_last_week_timestamp)
+        print(f"firday_last_week_timestamp = {firday_last_week_timestamp}")
+        print(f"week change now date = {now_date} / limit = {limit}")
 
         if now_date < limit:
             print("Noooooo Find")
@@ -101,8 +104,14 @@ def history_price_filter(candles: sliced_candle_info) -> history_price_group:
     volume : list = candles.volumes[-WEEKLY_52_BAR:]
     timestamp : list = candles.timestamps[-WEEKLY_52_BAR:]
 
+    if len(bars_close) < WEEKLY_52_BAR:
+        return None
+
     weekly_52_high = max(bars_close)
     weekly_52_low = min(bars_close)
+
+    if not weekly_52_high or not weekly_52_low:
+        return None
 
     gap = round(((weekly_52_high - bars_close[-1]) / weekly_52_high) * 100, 2)
     ma5 = calculate_moving_average(volume)
@@ -111,6 +120,7 @@ def history_price_filter(candles: sliced_candle_info) -> history_price_group:
     break_high = is_high_low_between_this_week(timestamp[bars_close.index(weekly_52_high)], candles.this_week[0],candles.this_week[1])
     break_low =  is_high_low_between_this_week(timestamp[bars_close.index(weekly_52_low)], candles.this_week[0],candles.this_week[1])
     break_high_today = timestamp[bars_close.index(weekly_52_high)] == candles.today
+    break_low_today = timestamp[bars_close.index(weekly_52_low)] == candles.today
     big_volume = volume[-1] > ma5[-1] and volume[-1] > ma20[-1]
 
     history = history_price_group(
@@ -120,6 +130,7 @@ def history_price_filter(candles: sliced_candle_info) -> history_price_group:
         break_high=break_high,
         break_low=break_low,
         break_high_today=break_high_today,
+        break_low_today=break_low_today,
         big_volume = big_volume,
         above_all_moving_avg_line=above_all_moving_avg_line(bars_close),
         volatility = cal_volatility(bars_open[bars_close.index(weekly_52_low):],bars_close[bars_close.index(weekly_52_low):]),
@@ -174,11 +185,11 @@ def cal_data(tickets_info: dict, start_date: datetime, all_data: dict , range = 
 
         market_result.industry[industry].stock[ticket_name] = his_data
 
-        if his_data.break_high:
+        if his_data.break_high_today:
             market_result.industry[industry].ath_count += 1
             market_result.industry[industry].break_high_group.append(ticket_name)
 
-        if his_data.break_low:
+        if his_data.break_low_today:
             market_result.industry[industry].atl_count += 1
             market_result.industry[industry].break_low_group.append(ticket_name)
 
@@ -230,6 +241,9 @@ def cal_data(tickets_info: dict, start_date: datetime, all_data: dict , range = 
         ath_count += industry_data.ath_count
         atl_count += industry_data.atl_count
 
+    if not dfs:
+        return None    
+
     allDF = pd.concat(dfs, ignore_index=True)
 
     today = start_date.strftime("%Y-%m-%d")
@@ -251,9 +265,14 @@ def cal_data(tickets_info: dict, start_date: datetime, all_data: dict , range = 
 
     return market_result  
 
-def cal_spy(start_date: datetime) -> history_price_group:
+def cal_spy(start_date: datetime , reuse_data : bool = False) -> history_price_group:
+    SPY_DATA_FILE = "spy_price.json"
 
-    ticket_candles = load_prices_from_yahoo(ticket_name='SPY')._asdict()
+    if not os.path.exists("spy_price.json") or not reuse_data:
+        ticket_candles = load_prices_from_yahoo(ticket_name='SPY')._asdict()
+        save_to_json(data=ticket_candles,json_file_path=SPY_DATA_FILE)
+    else:
+        ticket_candles = read_from_json(SPY_DATA_FILE)
 
     candles = slice_data(
         start_date=start_date, ticket_candles=ticket_candles
@@ -264,18 +283,29 @@ def cal_spy(start_date: datetime) -> history_price_group:
     return his_data
 
 @staticmethod
-def get_week_start_and_end(start_date_friday : datetime = None) -> tuple:
+def get_week_start_and_end(start_date : datetime) -> tuple:
 
-    if  start_date_friday is None or start_date_friday.weekday() != 4:
-        today = datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
-        monday = today - timedelta(days=today.weekday())  # Monday
-        friday = monday + timedelta(days=4)  # Friday
+    today = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+    monday = today - timedelta(days=today.weekday()) # Monday
+    friday = monday + timedelta(days=4)# Friday
 
-        monday = monday + timedelta(hours=8)
-        friday = friday + timedelta(hours=8)
-    else:
-        monday = start_date_friday - timedelta(days=4) + timedelta(hours=8)
-        friday = start_date_friday
+    monday += timedelta(hours=8)
+    friday += timedelta(hours=8)
+
+    print(f"monday = {monday}")
+    print(f"friday = {friday}")
+
+    # if  start_date_friday is None or start_date_friday.weekday() != 4:
+    #     #today = datetime.today().replace(hour=0, minute=0, second=0, microsecond=0)
+    #     today = start_date_friday.replace(hour=0, minute=0, second=0, microsecond=0)
+    #     monday = today - timedelta(days=today.weekday())  # Monday
+    #     friday = monday + timedelta(days=4)  # Friday
+
+    #     monday = monday + timedelta(hours=8)
+    #     friday = friday + timedelta(hours=8)
+    # else:
+    #     monday = start_date_friday - timedelta(days=4) + timedelta(hours=8)
+    #     friday = start_date_friday
 
 
     return (monday.timestamp(), friday.timestamp())
@@ -285,7 +315,7 @@ def slice_data(start_date: datetime, ticket_candles: dict):
 
     index = 0
     start_date_timestamp = start_date.timestamp()
-    monday_timestamp , _ = get_week_start_and_end(start_date_friday=start_date)
+    monday_timestamp , _ = get_week_start_and_end(start_date=start_date)
     monday_datetime = datetime.fromtimestamp(monday_timestamp)
     print(f"monday_datetime : {monday_datetime}")
     while True:
@@ -300,7 +330,8 @@ def slice_data(start_date: datetime, ticket_candles: dict):
             print(f"index = {index} , day = {datetime.fromtimestamp(start_date_timestamp)}")
             break
         else:
-            start_date_timestamp -= 86400
+            return None
+            #start_date_timestamp -= 86400
 
     return sliced_candle_info(
         opens=ticket_candles["opens"][: index + 1],
@@ -309,7 +340,7 @@ def slice_data(start_date: datetime, ticket_candles: dict):
         highs=ticket_candles["highs"][: index + 1],
         volumes=ticket_candles["volumes"][: index + 1],
         timestamps=ticket_candles["timestamps"][: index + 1],
-        this_week=get_week_start_and_end(start_date_friday=start_date),
+        this_week=get_week_start_and_end(start_date=start_date),
         today=start_date.timestamp(),
     )
 
@@ -333,8 +364,8 @@ def relative_strength(season_change :list , season_weight , season_min):
                 + (season_change[-3] - season_min[-3]) / season_weight[-3] * 0.1 \
                 + (season_change[-4] - season_min[-4]) / season_weight[-4] * 0.1
 
-def gen_rs_report(start_date,weekly_result:market_group,gap_range = 10):
-    spy_data = cal_spy(start_date=start_date)
+def gen_rs_report(start_date,weekly_result:market_group,gap_range = 10,reuse_data = False):
+    spy_data = cal_spy(start_date=start_date,reuse_data=reuse_data)
 
     rs_list = {}
     season_total = {i : [] for i in range(4)}
@@ -437,8 +468,8 @@ class Ath_model:
         self.end_date = end_date    
         self.range = gap_to_high_range
         self.marketCap = marketCap
+        self.reuse_data = reuse_data
 
-        
     def run(self):
 
         day = self.start_date
@@ -452,21 +483,25 @@ class Ath_model:
                                      all_data=self.stocks_price_data,
                                      range=self.range)
             
-            weekly_list.append((day.strftime("%Y-%m-%d"),weekly_result))
-            gen_rs_report(start_date=day,weekly_result=weekly_result,gap_range=self.range)
+            if weekly_result:
+            
+                weekly_list.append((day.strftime("%Y-%m-%d"),weekly_result))
+                gen_rs_report(start_date=day,weekly_result=weekly_result,gap_range=self.range,reuse_data=self.reuse_data)
 
-            tmp = {
-                "start_date": day.strftime("%Y-%m-%d"),
-                "ath_count": weekly_result.ath_count,
-                "atl_count": weekly_result.atl_count,
-            }
-
-
-            df = pd.DataFrame(tmp, index=[0])
-            history.append(df)
+                tmp = {
+                    "start_date": day.strftime("%Y-%m-%d"),
+                    "ath_count": weekly_result.ath_count,
+                    "atl_count": weekly_result.atl_count,
+                }
 
 
-            day = day + timedelta(days=7)
+                df = pd.DataFrame(tmp, index=[0])
+                history.append(df)
+
+            if day.weekday() == 4:
+                day = day + timedelta(days=3)
+            else:
+                day = day + timedelta(days=1)
 
         allDF = pd.concat(history, ignore_index=True)
         file_name  = "datasheet.csv"
