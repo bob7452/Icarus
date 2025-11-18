@@ -187,5 +187,5 @@ if __name__ == "__main__":
     df = pd.read_csv("datasheet.csv")
     df_252day = calculate_bear_risk_index(df).tail(252)
     plot_ath_atl_data(df_252day)
-    plot_ath_atl_data()
+    plot_weekly_ath_atl_data()
     #plot_bear_risk_index(df)
