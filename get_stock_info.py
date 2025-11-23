@@ -109,11 +109,14 @@ def search_ticker_info(name) -> Ticket:
                 industry=get_info_from_dict(info.info, "industry"),
                 marketCap=get_info_from_dict(info.info, "marketCap"),
             )
+            break
         except Exception as e:
             print(f"{name} error ouccrs {e}")
             print(f"retry {i+1} times")
             time.sleep(60)
-            return None
+    else:
+        print("there isn't any request after test 3 times")
+        return None
 
     return ticket
 
