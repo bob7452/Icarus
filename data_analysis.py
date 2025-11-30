@@ -104,9 +104,6 @@ def history_price_filter(candles: sliced_candle_info) -> history_price_group:
     volume : list = candles.volumes[-WEEKLY_52_BAR:]
     timestamp : list = candles.timestamps[-WEEKLY_52_BAR:]
 
-    if len(bars_close) < WEEKLY_52_BAR:
-        return None
-
     weekly_52_high = max(bars_close)
     weekly_52_low = min(bars_close)
 
@@ -151,7 +148,7 @@ def cal_data(tickets_info: dict, start_date: datetime, all_data: dict , range = 
 
     market_result = market_group()
     for idx, ticket_name in enumerate(tickets_info.keys()):
-        print(f"cal process ({idx+1}/{total_stocks})")
+        print(f" [{ticket_name}] cal process ({idx+1}/{total_stocks})")
 
         candles = slice_data(
             start_date=start_date, ticket_candles=all_data[ticket_name]
