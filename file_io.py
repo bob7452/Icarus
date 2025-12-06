@@ -51,10 +51,15 @@ def read_lastest_rs_report_path()->str:
     return lastest_report
 
 def read_lastest_heat_report()->pd.DataFrame:
+    if not os.path.exists(HEAT_REPORT):
+        return []
     heats = pd.read_csv(HEAT_REPORT)
     return heats['ticket'].to_list()
 
 def read_lastest_news_report() -> list[str]:
+    if not os.path.exists(NEW_REPORT):
+        return []
+
     news = pd.read_csv(NEW_REPORT)
     
     title = news['title'].to_list()

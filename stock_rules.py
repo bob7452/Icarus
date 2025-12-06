@@ -1,5 +1,7 @@
 from file_io import read_lastest_rs_report , read_lastest_heat_report
 
+stocks_to_exclude = ['MOBBW', 'NUKKW']
+
 def qualified_stocks():
     df = read_lastest_rs_report()
     
@@ -7,7 +9,8 @@ def qualified_stocks():
         (df['close_to_high_10%'] == True) & 
         (df['powerful_than_spy'] == True) & 
         (df['group_powerful_than_spy'] == True) &
-        (df['breakout_with_big_volume'] == True)
+        (df['breakout_with_big_volume'] == True) &
+        (~df['name'].isin(stocks_to_exclude))
         # (df['above_all_moving_avg_line'] == True)
     ]
 
