@@ -21,6 +21,7 @@ MARKET_PIC_PATH = os.path.join(ROOT,"ath_atl_data.png")
 WEEKLY_ATH_ATL_PIC_PATH = os.path.join(ROOT,"weekly_ath_atl_data_last_52_weeks.png")
 SKEW_PIC_PATH = os.path.join(ROOT,"option_skew_with_diff.png")
 VIX_TERM_PIC_PATH = os.path.join(ROOT,"vix_term.png")
+OPTION_SKEW_SUMMARY = os.path.join(ROOT,"option_skew_summary.png")
 
 def get_picture_path():
     
@@ -55,6 +56,11 @@ async def TodayStock(ctx):
 
     if os.path.exists(INDEX_PIC_PATH):
         pic = discord.File(INDEX_PIC_PATH)
+        await ctx.send(file=pic)
+        time.sleep(0.5)
+
+    if os.path.exists(OPTION_SKEW_SUMMARY):
+        pic = discord.File(OPTION_SKEW_SUMMARY)
         await ctx.send(file=pic)
         time.sleep(0.5)
 
