@@ -59,11 +59,6 @@ async def TodayStock(ctx):
         await ctx.send(file=pic)
         time.sleep(0.5)
 
-    if os.path.exists(OPTION_SKEW_SUMMARY):
-        pic = discord.File(OPTION_SKEW_SUMMARY)
-        await ctx.send(file=pic)
-        time.sleep(0.5)
-
     for name,path in pictures:
         if not os.path.exists(path):
             continue
@@ -78,6 +73,12 @@ async def TodaySkew(ctx):
         pic = discord.File(SKEW_PIC_PATH)
         await ctx.send(file=pic)
         time.sleep(0.5)
+
+    if os.path.exists(OPTION_SKEW_SUMMARY):
+        pic = discord.File(OPTION_SKEW_SUMMARY)
+        await ctx.send(file=pic)
+        time.sleep(0.5)
+
 
 @bot.command()
 async def TodayVixTerm(ctx):
