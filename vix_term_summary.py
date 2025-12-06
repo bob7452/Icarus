@@ -70,7 +70,7 @@ def plot_vix_term_summary():
         print(f"\nSuccessfully saved data with flags to: {CSV_OUTPUT_PATH.resolve()}")
 
         # === Step 4: Plot the Data using Matplotlib (Same as before) ===
-        plt.figure(figsize=(12, 6))
+        plt.figure(figsize=(16, 8))
         
         plt.plot(df['Date'], df['Spread'], marker='o', linestyle='-', markersize=2, label='VIX - VIX3M Spread')
         
@@ -96,7 +96,7 @@ def plot_vix_term_summary():
         
         # Display the chart
         plt.tight_layout()
-        plt.savefig("vix_term_summary.png")
+        plt.savefig("vix_term_summary.png",dpi=300)
 
 if __name__ == "__main__":
     plot_vix_term_summary()
