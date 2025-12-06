@@ -9,6 +9,7 @@ import traceback
 import time
 import yfinance as yf
 from update_news import chat
+from option_skew_plot import run_skew_plot
 
 CACHE_FILE = Path("option_task_cache.json")
 MAX_RETRIES = 12 
@@ -110,6 +111,7 @@ if __name__ == "__main__":
         process_snapshot_analysis(today=process_day,
                                 symbol="SPY",
                                 underlying_price=get_spy_price_at(process_day.strftime("%Y-%m-%d")))
+        run_skew_plot()
         chat(contents=["!TodaySkew"])
     except Exception as e:
             print("Process Skew Task execution failed with unexpected error:")

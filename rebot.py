@@ -20,8 +20,9 @@ INDEX_PIC_PATH = os.path.join(ROOT,"mspi.png")
 MARKET_PIC_PATH = os.path.join(ROOT,"ath_atl_data.png")
 WEEKLY_ATH_ATL_PIC_PATH = os.path.join(ROOT,"weekly_ath_atl_data_last_52_weeks.png")
 SKEW_PIC_PATH = os.path.join(ROOT,"option_skew_with_diff.png")
-VIX_TERM_PIC_PATH = os.path.join(ROOT,"vix_term.png")
 OPTION_SKEW_SUMMARY = os.path.join(ROOT,"option_skew_summary.png")
+VIX_TERM_PIC_PATH = os.path.join(ROOT,"vix_term.png")
+VIX_TERM_SUMMARY = os.path.join(ROOT,"vix_term_summary.png.png")
 
 def get_picture_path():
     
@@ -87,6 +88,10 @@ async def TodayVixTerm(ctx):
         await ctx.send(file=pic)
         time.sleep(0.5)
 
+    if os.path.exists(VIX_TERM_SUMMARY):
+        pic = discord.File(VIX_TERM_SUMMARY)
+        await ctx.send(file=pic)
+        time.sleep(0.5)
 
 
 

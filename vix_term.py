@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from update_news import chat
+from vix_term_summary import plot_vix_term_summary
 
 
 VIX_DB = Path(__file__).parent / "database" / "vix_data.db"
@@ -187,4 +188,5 @@ if __name__ == "__main__":
     today_str = process_day.strftime("%Y-%m-%d")
     main(today_str)
     plot_vix_term()
+    plot_vix_term_summary()
     chat(contents=["!TodayVixTerm"])
