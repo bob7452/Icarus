@@ -190,7 +190,7 @@ def run_skew_plot():
         ax.set_xlabel('') # Clear X label for shared axis
         
         # Add legend
-        ax.legend(loc='upper right', fontsize=10)
+        ax.legend(loc='lower right', fontsize=10)
 
     # Final adjustments for the shared X-axis (only the bottom chart gets the X label)
     axes[-1].set_xlabel('Snapshot Date', fontsize=14)
