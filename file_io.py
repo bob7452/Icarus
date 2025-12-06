@@ -58,7 +58,7 @@ def read_lastest_heat_report()->pd.DataFrame:
 
 def read_lastest_news_report() -> list[str]:
     if not os.path.exists(NEW_REPORT):
-        return []
+        return ["There are no news today."]
 
     news = pd.read_csv(NEW_REPORT)
     
