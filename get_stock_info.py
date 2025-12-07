@@ -141,10 +141,15 @@ def get_total_stocks_basic_info(marketCap = MARKET_CAP_10E,reuse_data = False) -
     size = len(tickets)
 
     empty_list = []
+    skip_list = ["MOBBW","NUKKW"]
 
     for idx, name in enumerate(tickets.keys()):
 
         print(f"process {name} info ({idx+1}/{size})")
+
+        if name in skip_list:
+            print(f"SKIP Stock [{name}]")
+            continue
 
         ticket = search_ticker_info(name=name)
 
