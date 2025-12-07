@@ -126,7 +126,7 @@ def main():
 
             if not is_pass:
                 print(message)
-                continue
+                #continue
             else:
                 print(message)
                 send_to_chat(message)
