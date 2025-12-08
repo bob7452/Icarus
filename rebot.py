@@ -22,7 +22,7 @@ WEEKLY_ATH_ATL_PIC_PATH = os.path.join(ROOT,"weekly_ath_atl_data_last_52_weeks.p
 SKEW_PIC_PATH = os.path.join(ROOT,"option_skew_with_diff.png")
 OPTION_SKEW_SUMMARY = os.path.join(ROOT,"option_skew_summary.png")
 VIX_TERM_PIC_PATH = os.path.join(ROOT,"vix_term.png")
-VIX_TERM_SUMMARY = os.path.join(ROOT,"vix_term_summary.png.png")
+VIX_TERM_SUMMARY = os.path.join(ROOT,"vix_term_summary.png")
 
 def get_picture_path():
     
