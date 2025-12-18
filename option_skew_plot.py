@@ -39,11 +39,11 @@ def find_nearest_monthly_expiration(date):
     expiry_date = get_third_friday(date)
     
     # 2. Check if this expiration has passed or is today (expiry_date <= date)
-    if expiry_date <= date:
-        # Roll to the next month's expiry.
-        next_month_start = date.replace(day=28) + timedelta(days=4)
-        next_month_start = next_month_start.replace(day=1)
-        expiry_date = get_third_friday(next_month_start)
+    # if expiry_date <= date:
+    # Roll to the next month's expiry.
+    next_month_start = date.replace(day=28) + timedelta(days=4)
+    next_month_start = next_month_start.replace(day=1)
+    expiry_date = get_third_friday(next_month_start)
         
     return expiry_date
 
@@ -190,7 +190,7 @@ def run_skew_plot():
         ax.set_xlabel('') # Clear X label for shared axis
         
         # Add legend
-        ax.legend(loc='lower right', fontsize=10)
+        #ax.legend(loc='lower right', fontsize=10)
 
     # Final adjustments for the shared X-axis (only the bottom chart gets the X label)
     axes[-1].set_xlabel('Snapshot Date', fontsize=14)

@@ -137,7 +137,7 @@ def plot_weekly_ath_atl_data():
 
     # ⭐ 新增要求：只輸出最後 52 週的結果 (約一年)
     weekly_df = weekly_df.tail(52)
-    
+    weekly_df.to_csv("weekly_ath_atl.csv", encoding='utf-8-sig',index=False)
     print(f"\n--- 彙總後的每週數據 (僅顯示最新的 {len(weekly_df)} 週) ---")
     print(weekly_df.head())
 
