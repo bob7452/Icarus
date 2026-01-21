@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import time
 import datetime
-from stock_rules import rs_above_90 , heat_rank_rs90
+from stock_rules import rs_above_90 , heat_rank_rs90 , qualified_stocks
 from file_io import read_stock_info_json , read_stock_price_json
 from update_news import chat
 
@@ -18,6 +18,15 @@ def send_to_chat(contents):
 
 def is_today_saturday():
     return datetime.datetime.today().weekday() == 5
+
+def today_stock():
+    
+    filtered_stocks = qualified_stocks()
+    stock_names = filtered_stocks['name'].to_list() 
+
+    return stock_names
+
+
 
 
 def check_stock_conditions(stock_name , timestamps, opens, highs, lows, closes, volumes, verbose=True):
@@ -91,23 +100,15 @@ def check_stock_conditions(stock_name , timestamps, opens, highs, lows, closes, 
 
 def main():
 
-    if is_today_saturday():
-        print("今天是星期六！")
-    else:
-        print("今天不是星期六。")
-        return
-
-    stocks = rs_above_90()['name'].to_list()
-
     info = read_stock_info_json()
     price = read_stock_price_json()
-    txt_words = ""
-    group = {}
 
+    with open("trading_view_list_over90.txt",mode='w',) as file:
+        over90_group = {}
+        txt_words = ""
+        over90_stocks = rs_above_90()['name'].to_list()
 
-
-    with open("trading_view_list.txt",mode='w',) as file:
-        for stock in stocks:
+        for stock in over90_stocks:
 
             timestamps = price[stock]["timestamps"]
             opens = price[stock]["opens"]
@@ -126,22 +127,65 @@ def main():
 
             if not is_pass:
                 print(message)
-                #continue
+                continue
             else:
                 print(message)
-                send_to_chat(message)
+                #send_to_chat(message)
 
             industry : str = info[stock]["industry"]
             universe : str = info[stock]["universe"]
             universe = universe.replace('NYSE MKT','AMEX')
 
-            if industry not in group:
-                group[industry] = [FORMAT.format(universe,stock)]
+            if industry not in over90_group:
+                over90_group[industry] = [FORMAT.format(universe,stock)]
             else:
-                group[industry].append(FORMAT.format(universe,stock))
+                over90_group[industry].append(FORMAT.format(universe,stock))
         
 
-        for universe , stock in group.items():
+        for universe , stock in over90_group.items():
+            txt_words += HEADER.format(universe) + "".join(stock)
+        file.write(txt_words)
+
+    with open("today_stock.txt",mode='w',) as file:
+        txt_words = ""
+        breakout_group = {}
+        breakout_toady_stocks = today_stock()
+
+        for stock in breakout_toady_stocks:
+
+            timestamps = price[stock]["timestamps"]
+            opens = price[stock]["opens"]
+            highs = price[stock]["highs"]
+            lows = price[stock]["lows"]
+            closes = price[stock]["closes"]
+            volumes = price[stock]["volumes"]
+
+            is_pass , message = check_stock_conditions(stock_name=stock,
+                                        timestamps=timestamps,
+                                        opens=opens,
+                                        highs=highs,
+                                        lows=lows,
+                                        closes=closes,
+                                        volumes=volumes,)
+
+            if not is_pass:
+                print(message)
+                continue
+            else:
+                print(message)
+                #send_to_chat(message)
+
+            industry : str = info[stock]["industry"]
+            universe : str = info[stock]["universe"]
+            universe = universe.replace('NYSE MKT','AMEX')
+
+            if industry not in breakout_group:
+                breakout_group[industry] = [FORMAT.format(universe,stock)]
+            else:
+                breakout_group[industry].append(FORMAT.format(universe,stock))
+        
+
+        for universe , stock in breakout_group.items():
             txt_words += HEADER.format(universe) + "".join(stock)
         file.write(txt_words)
 

@@ -13,3 +13,5 @@ python3 market_index.py
 python3 mspi.py
 python3 update_news.py
 python3 tradingview_list.py
+cp -f trading_view_list_over90.txt ~/GoogleDrive/trading_view_list_over90.txt
+cp -f today_stock.txt ~/GoogleDrive/today_stock.txt

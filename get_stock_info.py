@@ -140,14 +140,13 @@ def get_total_stocks_basic_info(marketCap = MARKET_CAP_10E,reuse_data = False) -
 
     size = len(tickets)
 
-    empty_list = []
-    skip_list = ["MOBBW","NUKKW"]
+    empty_skip_list = ["MOBBW","NUKKW"]
 
     for idx, name in enumerate(tickets.keys()):
 
         print(f"process {name} info ({idx+1}/{size})")
 
-        if name in skip_list:
+        if name in empty_skip_list:
             print(f"SKIP Stock [{name}]")
             continue
 
@@ -165,12 +164,13 @@ def get_total_stocks_basic_info(marketCap = MARKET_CAP_10E,reuse_data = False) -
             or ticket.marketCap == "n/a"
             or ticket.marketCap < marketCap
         ):
-            empty_list.append(name)
+            empty_skip_list.append(name)
 
         time.sleep(SOCKET_DELAY)
 
-    for name in empty_list:
-        del tickets[name]
+    for name in empty_skip_list:
+        if name in ticket:
+            del tickets[name]
 
     save_to_json(data=tickets, json_file_path=STOCK_INFO_JSON_PATH)
 

@@ -1,67 +1,8 @@
+import os
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 from sklearn.preprocessing import MinMaxScaler
-
-def calculate_bear_risk_index(df):
-    """
-    計算並正則化熊市風險指數 (Bear Market Risk Index)
-    
-    :param df: DataFrame，需包含 'ath_count' 和 'atl_count' 列
-    :return: DataFrame，附加 'bear_risk_index' 列
-    """
-    WINDOWS = 5 # 移動平均視窗大小
-    df['ath_ma'] = df['ath_count'].rolling(window=WINDOWS).mean()
-    df['atl_ma'] = df['atl_count'].rolling(window=WINDOWS).mean()
-    df['ath_std'] = df['ath_count'].rolling(window=WINDOWS).std()
-    df['atl_std'] = df['atl_count'].rolling(window=WINDOWS).std()
-
-    # 避免 NaN 值影響計算
-    df.fillna(0, inplace=True)
-
-    # 計算風險指數
-    df['bear_risk_index'] = (df['atl_ma'] * df['atl_std']) / (df['ath_ma'] + 1)
-
-    # 正則化風險指數 (0~1 之間)
-    scaler = MinMaxScaler()
-    df['bear_risk_index'] = scaler.fit_transform(df[['bear_risk_index']])
-
-    return df
-
-def plot_bear_risk_index(df):
-    """
-    繪製熊市風險指數趨勢圖，並在副軸上繪製 ATH 計數，避免 x 軸重複
-    
-    :param df: DataFrame，需包含 'start_date', 'bear_risk_index', 和 'ath_count' 列
-    """
-    fig, ax1 = plt.subplots(figsize=(15,6))
-
-    # 主軸：熊市風險指數
-    ax1.plot(df['start_date'], df['bear_risk_index'], label='Bear Market Risk Index', color='purple')
-    ax1.set_xlabel('Date')
-    ax1.set_ylabel('Normalized Risk Index', color='purple')
-    ax1.tick_params(axis='y', labelcolor='purple')
-    ax1.set_title('Normalized Bear Market Risk Index and ATH Count Over Time')
-    ax1.grid(True)
-
-    # 副軸：ATH 計數
-    ax2 = ax1.twinx()
-    ax2.plot(df['start_date'], df['ath_count'], label='ATH Count', color='orange', linestyle='dashed')
-    ax2.set_ylabel('ATH Count', color='orange')
-    ax2.tick_params(axis='y', labelcolor='orange')
-
-    # 讓副軸共享 x 軸，但不重複顯示
-    ax2.get_xaxis().set_visible(False)
-
-    # 避免日期重疊
-    ax1.set_xticks(df['start_date'][::len(df)//10])  # 只顯示 10 個間距的日期
-    plt.xticks(rotation=45)
-
-    # 圖例
-    ax1.legend(loc='upper left')
-    ax2.legend(loc='upper right')
-
-    #plt.show()
-    plt.savefig("market_index.png")
 
 def plot_ath_atl_data(df):
 
@@ -92,100 +33,108 @@ def plot_ath_atl_data(df):
     # plt.show()
     plt.savefig("ath_atl_data.png")
 
-def calculate_bear_risk_index(df):
-    """
-    這個函數是您環境中自定義的，在此處僅作為佔位符。
-    請確保它返回一個 DataFrame，且包含 'start_date', 'ath_count', 'atl_count'。
-    """
-    # 假設它在 DataFrame 中加入了一些新的欄位或計算
-    # 為了演示，我們在這裡加入一個簡單的檢查
-    if 'start_date' not in df.columns:
-         raise ValueError("DataFrame 缺少 'start_date' 欄位。")
-    print("已執行 calculate_bear_risk_index 函數。")
-    return df
-
 def plot_weekly_ath_atl_data():
     
-    # --- 步驟 0: 資料載入與處理 ---
-    try:
-        # --------------------------------------------------------
-        # 請使用以下程式碼來載入您的真實數據
+    # --- 步驟 0: 資料載入與彙整 ---
+    if os.path.exists("datasheet.csv"):
+        print("正在載入日資料並彙整為週資料...")
         df = pd.read_csv("datasheet.csv")
-
-        # --------------------------------------------------------
+        df["start_date"] = pd.to_datetime(df["start_date"])
+        # 計算週起始日 (週一)
+        df['week_start_date'] = df['start_date'] - pd.to_timedelta(df['start_date'].dt.weekday, unit='D')
+        # 彙整並記錄當週天數 (用於鎖定邏輯)
+        weekly_df = df.groupby('week_start_date').agg({
+            'ath_count': 'sum', 
+            'atl_count': 'sum', 
+            'start_date': 'count'
+        }).rename(columns={'start_date': 'days_in_week'}).reset_index()
         
-    except FileNotFoundError:
-        print("錯誤：找不到 datasheet.csv 文件。請確保檔案位於正確路徑。")
+        # 存檔供後續快速使用
+        weekly_df.tail(52).to_csv("weekly_ath_atl.csv", encoding='utf-8-sig', index=False)
+    elif os.path.exists("weekly_ath_atl.csv"):
+        print("由 weekly_ath_atl.csv 直接載入週資料...")
+        weekly_df = pd.read_csv("weekly_ath_atl.csv")
+        weekly_df['week_start_date'] = pd.to_datetime(weekly_df['week_start_date'])
+        if 'days_in_week' not in weekly_df.columns: weekly_df['days_in_week'] = 5
+    else:
+        print("錯誤：找不到資料源 (datasheet.csv 或 weekly_ath_atl.csv)")
         return
-    except ValueError as e:
-        print(f"錯誤：calculate_bear_risk_index 函數出錯：{e}")
-        return
+
+    # --- 步驟 1: 指標與動態門檻計算 (基於最後 52 週) ---
+    weekly_df = weekly_df.sort_values('week_start_date')
+    weekly_df['diff'] = weekly_df['ath_count'] - weekly_df['atl_count']
+    weekly_df['ath_slope'] = weekly_df['ath_count'].diff()
     
-    # 確保 'start_date' 是 datetime 格式
-    df["start_date"] = pd.to_datetime(df["start_date"])
-    
-    # 如果您只想要週一到週五的數據總和，請取消註釋下面一行：
-    # df = df[df['start_date'].dt.weekday < 5].copy() 
+    recent_52w = weekly_df.tail(52).copy()
+    diff_q95 = recent_52w['diff'].quantile(0.95)   # 過熱星星門檻
+    atl_q95  = recent_52w['atl_count'].quantile(0.95) # 恐慌門檻
+    ath_median = recent_52w['ath_count'].median()
+    atl_median = recent_52w['atl_count'].median()
 
-    # --- 步驟 1: 彙總成週資料 (找出當週週一到週五的總和) ---
-    
-    # 關鍵：計算該日期所屬週的星期一日期 (作為週的代表日期)
-    df['week_start_date'] = df['start_date'] - pd.to_timedelta(df['start_date'].dt.weekday, unit='D')
-    
-    # 透過 week_start_date 進行分組，並計算每週 ath_count 和 atl_count 的總和
-    weekly_df = df.groupby('week_start_date')[['ath_count', 'atl_count']].sum().reset_index()
+    # 恐慌標記 (回溯 4 週)
+    weekly_df['panic_trigger'] = weekly_df['atl_count'] > atl_q95
+    weekly_df['recent_panic'] = weekly_df['panic_trigger'].rolling(window=4, min_periods=1).max().astype(bool)
 
-    # ⭐ 新增要求：只輸出最後 52 週的結果 (約一年)
-    weekly_df = weekly_df.tail(52)
-    weekly_df.to_csv("weekly_ath_atl.csv", encoding='utf-8-sig',index=False)
-    print(f"\n--- 彙總後的每週數據 (僅顯示最新的 {len(weekly_df)} 週) ---")
-    print(weekly_df.head())
+    # --- 步驟 2: 市場結構定義 (SOP v4 優先級) ---
+    def get_structure(row):
+        ath, atl, diff_v, slope = row['ath_count'], row['atl_count'], row['diff'], row['ath_slope']
+        if row['recent_panic'] and slope > 0: return 'Hunting'  # 🎯 狩獵
+        if atl > atl_q95: return 'Panic'                       # 🟣 恐慌
+        if diff_v > diff_q95: return 'Climax'                  # 🟡 過熱
+        if ath > ath_median and atl < atl_median: return 'Bullish' # 🟢 強勢
+        if ath > ath_median: return 'Neutral'                  # ⚪ 整理
+        return 'Slumping'                                      # 🔴 陰跌
 
-    # --- 步驟 2: 繪製雙軸圖 ---
+    weekly_df['structure'] = weekly_df.apply(get_structure, axis=1)
 
-    fig, ax1 = plt.subplots(figsize=(12, 6))
+    # ⭐ 鎖定邏輯：未完週 (不足 5 天) 沿用前一週天氣
+    if len(weekly_df) > 1 and weekly_df.iloc[-1]['days_in_week'] < 5:
+        weekly_df.loc[weekly_df.index[-1], 'structure'] = weekly_df.iloc[-2]['structure']
 
-    color_ath = 'tab:blue'
-    color_atl = 'tab:red'
+    # --- 步驟 3: 繪製診斷圖表 ---
+    plot_df = weekly_df.tail(52).copy()
+    fig, ax1 = plt.subplots(figsize=(16, 9))
+    color_map = {'Hunting':'#BA55D3', 'Panic':'#4B0082', 'Climax':'#FFD700', 'Bullish':'#90EE90', 'Neutral':'#D3D3D3', 'Slumping':'#FFB6C1'}
 
-    # 主軸: ath_count
-    ax1.set_xlabel('Week Starting Date (Monday)')
-    ax1.set_ylabel(f'Weekly ATH Count (Last {len(weekly_df)} Weeks Sum)', color=color_ath)
-    
-    # 使用篩選後的 weekly_df 繪圖
-    ax1.plot(weekly_df["week_start_date"], weekly_df["ath_count"], 
-             color=color_ath, label='Weekly ATH Count', marker='o', linestyle='-')
-    ax1.tick_params(axis='y', labelcolor=color_ath)
+    # 背景繪製
+    for i in range(len(plot_df)):
+        start = plot_df.iloc[i]['week_start_date']
+        end = start + pd.Timedelta(days=7)
+        ax1.axvspan(start, end, color=color_map[plot_df.iloc[i]['structure']], alpha=0.3)
 
-    # 副軸: atl_count
+    # 曲線繪製
+    ax1.plot(plot_df['week_start_date'], plot_df['ath_count'], color='blue', label='ATH (Oxygen)', marker='o', markersize=3)
     ax2 = ax1.twinx()
-    ax2.set_ylabel(f'Weekly ATL Count (Last {len(weekly_df)} Weeks Sum)', color=color_atl)
-    
-    # 使用篩選後的 weekly_df 繪圖
-    ax2.plot(weekly_df["week_start_date"], weekly_df["atl_count"], 
-             color=color_atl, label='Weekly ATL Count', marker='x', linestyle='--')
-    ax2.tick_params(axis='y', labelcolor=color_atl)
+    ax2.plot(plot_df['week_start_date'], plot_df['atl_count'], color='red', label='ATL (Toxin)', marker='x', ls='--')
 
-    # 設定 X 軸格式
+    # 標記訊號 (星星、箭頭)
+    climax = plot_df[plot_df['structure'] == 'Climax']
+    panic = plot_df[plot_df['structure'] == 'Panic']
+    hunting = plot_df[plot_df['structure'] == 'Hunting']
+    if not climax.empty: ax1.scatter(climax['week_start_date'], climax['ath_count']+100, marker='*', c='gold', s=200, edgecolors='black')
+    if not panic.empty: ax2.scatter(panic['week_start_date'], panic['atl_count']+50, marker='v', c='indigo', s=100)
+    if not hunting.empty: ax1.scatter(hunting['week_start_date'], hunting['ath_count']-50, marker='^', c='darkorchid', s=120)
+
+    # 狀態看板
+    latest = plot_df.iloc[-1]
+    status_text = f"LATEST: {latest['structure']}\nATH: {int(latest['ath_count'])} | ATL: {int(latest['atl_count'])}\nDiff Q95: {int(diff_q95)}"
+    plt.text(0.02, 0.96, status_text, transform=ax1.transAxes, fontsize=11, fontweight='bold', bbox=dict(facecolor='white', alpha=0.9))
+
+    plt.title('Market Structure Diagnostic SOP v4 (Final Integration)', fontsize=16)
     plt.gcf().autofmt_xdate()
-
-    plt.title(f'Weekly ATH vs ATL Count Over Time (Last {len(weekly_df)} Weeks)')
-    fig.tight_layout()
-    plt.grid(True)
     
-    # 將兩條線的圖例合併顯示在同一位置
-    lines1, labels1 = ax1.get_legend_handles_labels()
-    lines2, labels2 = ax2.get_legend_handles_labels()
-    ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper left')
+    # 圖例
+    patches = [mpatches.Patch(color=color_map[k], alpha=0.3, label=k) for k in color_map]
+    ax1.legend(handles=ax1.get_legend_handles_labels()[0] + ax2.get_legend_handles_labels()[0] + patches, loc='upper right', ncol=2, fontsize=8)
 
+    plt.tight_layout()
     plt.savefig("weekly_ath_atl_data_last_52_weeks.png")
-    print("\n已成功生成以週為單位，且只顯示最近 52 週的統計圖: weekly_ath_atl_data_last_52_weeks.png")
-    # plt.show()
+    print(f"\n報告已生成。最新狀態：{latest['structure']}，動態過熱門檻：{int(diff_q95)}")
 
 
 if __name__ == "__main__":
     df = pd.read_csv("datasheet.csv")
-    df_252day = calculate_bear_risk_index(df).tail(252)
+    df_252day = df.tail(252)
     plot_ath_atl_data(df_252day)
     plot_weekly_ath_atl_data()
-    #plot_bear_risk_index(df)
+
