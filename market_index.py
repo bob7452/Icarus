@@ -3,6 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from sklearn.preprocessing import MinMaxScaler
+import datetime
 
 def plot_ath_atl_data(df):
 
@@ -33,66 +34,140 @@ def plot_ath_atl_data(df):
     # plt.show()
     plt.savefig("ath_atl_data.png")
 
-def plot_weekly_ath_atl_data():
+def plot_weekly_ath_atl_data(weeks=52):
+    print(f"\n{'='*30}")
+    print(f"開始執行市場結構診斷 (SOP v4) - {datetime.date.today()}")
+    print(f"{'='*30}")
     
     # --- 步驟 0: 資料載入與彙整 ---
     if os.path.exists("datasheet.csv"):
-        print("正在載入日資料並彙整為週資料...")
+        print("[Log] 偵測到 datasheet.csv，正在進行日轉週彙整...")
         df = pd.read_csv("datasheet.csv")
         df["start_date"] = pd.to_datetime(df["start_date"])
-        # 計算週起始日 (週一)
         df['week_start_date'] = df['start_date'] - pd.to_timedelta(df['start_date'].dt.weekday, unit='D')
-        # 彙整並記錄當週天數 (用於鎖定邏輯)
+        
         weekly_df = df.groupby('week_start_date').agg({
             'ath_count': 'sum', 
             'atl_count': 'sum', 
             'start_date': 'count'
         }).rename(columns={'start_date': 'days_in_week'}).reset_index()
         
-        # 存檔供後續快速使用
-        weekly_df.tail(52).to_csv("weekly_ath_atl.csv", encoding='utf-8-sig', index=False)
+        weekly_df.to_csv("weekly_ath_atl.csv", encoding='utf-8-sig', index=False)
+        print(f"[Log] 彙整完成，共 {len(weekly_df)} 週數據，已存至 weekly_ath_atl.csv")
     elif os.path.exists("weekly_ath_atl.csv"):
-        print("由 weekly_ath_atl.csv 直接載入週資料...")
+        print("[Log] datasheet.csv 不存在，由 weekly_ath_atl.csv 直接載入...")
         weekly_df = pd.read_csv("weekly_ath_atl.csv")
         weekly_df['week_start_date'] = pd.to_datetime(weekly_df['week_start_date'])
         if 'days_in_week' not in weekly_df.columns: weekly_df['days_in_week'] = 5
     else:
-        print("錯誤：找不到資料源 (datasheet.csv 或 weekly_ath_atl.csv)")
+        print("[Error] 找不到任何資料源！請檢查檔案路徑。")
         return
 
-    # --- 步驟 1: 指標與動態門檻計算 (基於最後 52 週) ---
+    # --- 步驟 1: 指標計算 ---
     weekly_df = weekly_df.sort_values('week_start_date')
     weekly_df['diff'] = weekly_df['ath_count'] - weekly_df['atl_count']
     weekly_df['ath_slope'] = weekly_df['ath_count'].diff()
     
-    recent_52w = weekly_df.tail(52).copy()
-    diff_q95 = recent_52w['diff'].quantile(0.95)   # 過熱星星門檻
-    atl_q95  = recent_52w['atl_count'].quantile(0.95) # 恐慌門檻
-    ath_median = recent_52w['ath_count'].median()
-    atl_median = recent_52w['atl_count'].median()
+    # 計算動態門檻 (基於最後 N 週)
+    
+    recent_stats = weekly_df.tail(weeks).copy()
+    diff_q95 = recent_stats['diff'].quantile(0.95)
+    atl_q95 = recent_stats['atl_count'].quantile(0.90)
+    ath_median = recent_stats['ath_count'].median()
+    atl_median = recent_stats['atl_count'].median()
+
+    print(f"[Log] 動態門檻計算完成 ({weeks}週基準):")
+    print(f"      - 過熱門檻 (Diff Q95): {diff_q95:.2f}")
+    print(f"      - 恐慌門檻 (ATL Q95): {atl_q95:.2f}")
+    print(f"      - 中位數 (ATH/ATL): {ath_median:.1f} / {atl_median:.1f}")
 
     # 恐慌標記 (回溯 4 週)
     weekly_df['panic_trigger'] = weekly_df['atl_count'] > atl_q95
     weekly_df['recent_panic'] = weekly_df['panic_trigger'].rolling(window=4, min_periods=1).max().astype(bool)
 
-    # --- 步驟 2: 市場結構定義 (SOP v4 優先級) ---
-    def get_structure(row):
-        ath, atl, diff_v, slope = row['ath_count'], row['atl_count'], row['diff'], row['ath_slope']
-        if row['recent_panic'] and slope > 0: return 'Hunting'  # 🎯 狩獵
-        if atl > atl_q95: return 'Panic'                       # 🟣 恐慌
-        if diff_v > diff_q95: return 'Climax'                  # 🟡 過熱
-        if ath > ath_median and atl < atl_median: return 'Bullish' # 🟢 強勢
-        if ath > ath_median: return 'Neutral'                  # ⚪ 整理
-        return 'Slumping'                                      # 🔴 陰跌
+# --- 步驟 2: 市場結構定義 (加入 Log 追蹤) ---
+    structure_logs = []
 
+    def get_structure(row):
+        date_str = row['week_start_date'].strftime('%Y-%m-%d')
+        ath, atl, diff_v, slope = row['ath_count'], row['atl_count'], row['diff'], row['ath_slope']
+        recent_panic = row['recent_panic']
+        
+        # 邏輯判定與原因紀錄
+        if atl > atl_q95:
+            res = 'Panic'
+            reason = f"ATL({atl}) > 恐慌門檻({atl_q95:.1f})"
+        elif recent_panic and slope > 0:
+            res = 'Hunting'
+            reason = f"近期有恐慌 且 ATH斜率({slope:.1f}) > 0"
+        elif diff_v > diff_q95:
+            res = 'Climax'
+            reason = f"Diff({diff_v}) > 過熱門檻({diff_q95:.1f})"
+        elif ath > ath_median and atl < atl_median:
+            res = 'Bullish'
+            reason = f"ATH({ath}) > 中位數({ath_median:.1f}) 且 ATL({atl}) < 中位數({atl_median:.1f})"
+        elif ath > ath_median:
+            res = 'Neutral'
+            reason = f"僅 ATH({ath}) > 中位數({ath_median:.1f})"
+        else:
+            res = 'Slumping'
+            reason = f"所有看多條件皆不滿足 (ATH:{ath}, ATL:{atl})"
+        
+        # 將每一週的細節存入 logs
+        structure_logs.append({
+            'date': date_str,
+            'res': res,
+            'reason': reason,
+            'ath': ath,
+            'atl': atl,
+            'diff': diff_v,
+            'slope': slope
+        })
+        return res
+
+    # 執行計算
     weekly_df['structure'] = weekly_df.apply(get_structure, axis=1)
 
-    # ⭐ 鎖定邏輯：未完週 (不足 5 天) 沿用前一週天氣
-    if len(weekly_df) > 1 and weekly_df.iloc[-1]['days_in_week'] < 5:
-        weekly_df.loc[weekly_df.index[-1], 'structure'] = weekly_df.iloc[-2]['structure']
+    # 打印最後 N 週的詳細診斷 Log
+    print(f"\n[Diagnostic Log] 最近 {weeks} 週結構判斷明細:")
+    print(f"{'週起始日期':<12} | {'判斷結果':<10} | {'判定原因'}")
+    print("-" * 80)
+    
+    # 只顯示繪圖範圍內的週數，方便對照圖表
+    for log in structure_logs[-weeks:]:
+        print(f"{log['date']:<12} | {log['res']:<10} | {log['reason']}")
+
+    # ⭐ 鎖定邏輯修正：判斷該週是否「已跑完」
+    if len(weekly_df) > 1:
+        last_idx = weekly_df.index[-1]
+        prev_idx = weekly_df.index[-2]
+        latest_week_start = weekly_df.loc[last_idx, 'week_start_date']
+        this_friday = latest_week_start + pd.Timedelta(days=4)
+        today = pd.Timestamp(datetime.date.today())
+
+        print(f"[Log] 檢查週鎖定狀態:")
+        print(f"      - 本週起始日: {latest_week_start.date()} | 預計結束日(週五): {this_friday.date()}")
+        print(f"      - 今日日期: {today.date()}")
+
+        if today <= this_friday:
+            old_struct = weekly_df.loc[last_idx, 'structure']
+            new_struct = weekly_df.loc[prev_idx, 'structure']
+            weekly_df.loc[last_idx, 'structure'] = new_struct
+            print(f"      - [Action] 本週尚未結束，將狀態從 {old_struct} 鎖定為前週之 {new_struct}")
+        else:
+            print(f"      - [Action] 本週已結束，採用當前計算狀態: {weekly_df.loc[last_idx, 'structure']}")
+
+    # --- 步驟 3: 繪圖 (略，同前版但加上更詳細的檢查) ---
+    # ... (繪圖代碼維持不變，但建議在 text 標籤補上當前日期) ...
+    
+    latest = weekly_df.iloc[-1]
+    print(f"\n[Summary] 診斷完成")
+    print(f"核心狀態：{latest['structure']}")
+    print(f"數據細節：ATH {int(latest['ath_count'])} / ATL {int(latest['atl_count'])}")
+    print(f"{'='*30}\n")
 
     # --- 步驟 3: 繪製診斷圖表 ---
-    plot_df = weekly_df.tail(52).copy()
+    plot_df = weekly_df.tail(weeks).copy()
     fig, ax1 = plt.subplots(figsize=(16, 9))
     color_map = {'Hunting':'#BA55D3', 'Panic':'#4B0082', 'Climax':'#FFD700', 'Bullish':'#90EE90', 'Neutral':'#D3D3D3', 'Slumping':'#FFB6C1'}
 
@@ -136,5 +211,5 @@ if __name__ == "__main__":
     df = pd.read_csv("datasheet.csv")
     df_252day = df.tail(252)
     plot_ath_atl_data(df_252day)
-    plot_weekly_ath_atl_data()
+    plot_weekly_ath_atl_data(52)
 

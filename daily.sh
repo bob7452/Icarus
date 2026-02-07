@@ -1,11 +1,12 @@
 #!/bin/bash
 
 cd /home/ponder/Icarus
-python3 daily_run.py
+python3 holiday.py
 if [ $? -ne 0 ]; then
     echo "Today is Holiday~~~"
     exit 1
 fi
+python3 daily_run.py
 cp -f datasheet.csv ~/GoogleDrive/datasheet.csv
 python3 heat_parser.py
 python3 gen_rs_picture.py
