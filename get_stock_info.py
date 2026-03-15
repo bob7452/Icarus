@@ -169,7 +169,7 @@ def get_total_stocks_basic_info(marketCap = MARKET_CAP_10E,reuse_data = False) -
         time.sleep(SOCKET_DELAY)
 
     for name in empty_skip_list:
-        if name in ticket:
+        if name in tickets:
             del tickets[name]
 
     save_to_json(data=tickets, json_file_path=STOCK_INFO_JSON_PATH)
