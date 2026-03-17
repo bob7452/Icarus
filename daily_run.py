@@ -1,21 +1,23 @@
 from data_analysis import Ath_model
 from datetime import datetime , timedelta
-from shutil import rmtree
-import os
 from pandas_market_calendars import get_calendar
 import sys
 from get_stock_info import MARKET_CAP_10E
 
-def restore():
-    rmtree(path="rs_report")
-    rmtree(path="report")
-    rmtree(path="classic")
-    rmtree(path="all")
+from pathlib import Path
+import shutil
 
-    os.mkdir("rs_report")
-    os.mkdir("report")
-    os.mkdir("classic")
-    os.mkdir("all")
+def restore():
+    folders = ["rs_report", "report", "classic", "all"]
+    
+    for folder in folders:
+        path = Path(folder)
+        # 如果資料夾存在，就刪除它及其內容
+        if path.exists() and path.is_dir():
+            shutil.rmtree(path)
+        
+        # 建立新資料夾，parents=True 確保父層存在，exist_ok=True 避免重複建立報錯
+        path.mkdir(parents=True, exist_ok=True)
     
 def isholidays(start_date):
 

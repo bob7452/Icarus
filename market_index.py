@@ -80,7 +80,7 @@ def plot_weekly_ath_atl_data(weeks=52):
     atl_median = recent_stats['atl_count'].median()
     
     # [擴充] 固定歷史門檻
-    ATL_DANGER_THRESHOLD = 260
+    ATL_DANGER_THRESHOLD = 100
     PURITY_GOOD_THRESHOLD = 0.8
 
     print(f"[Log] 動態門檻計算完成 ({weeks}週基準):")
