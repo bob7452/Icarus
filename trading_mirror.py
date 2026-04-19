@@ -98,7 +98,7 @@ def fetch_latest_ib_attachment(service):
             csv_path.write_bytes(data)
             
             # 紀錄已處理
-            with PROCESSED_LOG.open("a") as f:
+            with PROCESSED_LOG.open("w") as f:
                 f.write(msg_id + "\n")
             
             return csv_path
