@@ -23,6 +23,7 @@ SKEW_PIC_PATH = os.path.join(ROOT,"option_skew_with_diff.png")
 OPTION_SKEW_SUMMARY = os.path.join(ROOT,"option_skew_summary.png")
 VIX_TERM_PIC_PATH = os.path.join(ROOT,"vix_term.png")
 VIX_TERM_SUMMARY = os.path.join(ROOT,"vix_term_summary.png")
+POSITION_SUMMARY = os.path.join(ROOT,"portfolio_pro_report.png")
 
 def get_picture_path():
     
@@ -93,7 +94,12 @@ async def TodayVixTerm(ctx):
         await ctx.send(file=pic)
         time.sleep(0.5)
 
-
+@bot.command()
+async def TodayPosition(ctx):
+    if os.path.exists(POSITION_SUMMARY):
+        pic = discord.File(POSITION_SUMMARY)
+        await ctx.send(file=pic)
+        time.sleep(0.5)
 
 
 token_from_json = read_from_json(TOKEN) 
