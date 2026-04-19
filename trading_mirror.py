@@ -53,7 +53,7 @@ def get_gmail_service():
 def fetch_latest_ib_attachment(service):
     # 搜尋最近 7 天內的信件，避免漏掉週末或假日的報表
     #subject:活動報表
-    search_query = "from:pttonlychen0823@gmail.com has:attachment newer_than:7d"
+    search_query = "from:interactivebrokers.com has:attachment newer_than:7d"
     
     print(f"🔍 正在搜尋 Gmail 報表...")
     results = service.users().messages().list(userId='me', q=search_query).execute()
