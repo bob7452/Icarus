@@ -1,9 +1,9 @@
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-from sklearn.preprocessing import MinMaxScaler
 import datetime
+from matplotlib.dates import MonthLocator, DateFormatter
+
 
 def plot_ath_atl_data(df):
 
@@ -34,7 +34,7 @@ def plot_ath_atl_data(df):
     # plt.show()
     plt.savefig("ath_atl_data.png")
 
-def plot_weekly_ath_atl_data(weeks=52):
+def plot_weekly_ath_atl_data(plot_days=252):
     print(f"\n{'='*30}")
     print(f"開始執行市場結構診斷 (SOP v5) - {datetime.date.today()}")
     print(f"{'='*30}")
@@ -63,152 +63,100 @@ def plot_weekly_ath_atl_data(weeks=52):
         print("[Error] 找不到任何資料源！請檢查檔案路徑。")
         return
 
-    # --- 步驟 1: 指標計算 ---
-    weekly_df = weekly_df.sort_values('week_start_date')
-    weekly_df['diff'] = weekly_df['ath_count'] - weekly_df['atl_count']
-    weekly_df['ath_slope'] = weekly_df['ath_count'].diff()
+    print("--- 執行 SOP v7.5：官方正式版 (平滑轉場) ---")
     
-    # [擴充] 計算多頭純度 (Purity)
-    weekly_df['total_signals'] = weekly_df['ath_count'] + weekly_df['atl_count']
-    weekly_df['purity'] = weekly_df['ath_count'] / weekly_df['total_signals']
+    # 1. 載入數據 (優先使用含價格的 mspi 檔案)
+    file_path = "mspi_v4.5_optimized_result.csv"
+    if not os.path.exists(file_path):
+        print(f"錯誤：找不到數據文件 {file_path}")
+        return
+        
+    df = pd.read_csv(file_path)
+    df["start_date"] = pd.to_datetime(df["start_date"])
+    df = df.sort_values("start_date").reset_index(drop=True)
+
+    # 2. 核心指標與 3 日平滑 (v7.5 靈魂)
+    df["net_breadth"] = df["ath_z"] - df["atl_z"]
+    df["nb_smooth"] = df["net_breadth"].rolling(window=3, min_periods=1).mean()
     
-    # 計算動態門檻 (基於最後 N 週)
-    recent_stats = weekly_df.tail(weeks).copy()
-    diff_q95 = recent_stats['diff'].quantile(0.95)
-    atl_q95 = recent_stats['atl_count'].quantile(0.90)
-    ath_median = recent_stats['ath_count'].median()
-    atl_median = recent_stats['atl_count'].median()
+    # 統計門檻 (延續 v7 統計回報邏輯)
+    q_high = df["net_breadth"].quantile(0.90)
+    q_low = df["net_breadth"].quantile(0.15)
+
+    # 3. 狀態分類 (SOP v7.5)
+    def classify_v7_5(row):
+        nb = row["nb_smooth"]
+        if nb > q_high: return 'Climax'
+        if nb < q_low: return 'Panic'
+        # 穩定多頭：氧氣正向且毒素低
+        if row['ath_z'] > 0.2 and row['atl_z'] < 0: return 'Bullish'
+        # 結構受損：毒素顯著增加
+        if row['atl_z'] > 0.6: return 'Slumping'
+        return 'Neutral'
+
+    df["structure"] = df.apply(classify_v7_5, axis=1)
+
+    # 4. 儀表板視覺化 (三層看板)
+    plot_df = df.tail(plot_days).copy()
+    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(16, 18), gridspec_kw={'height_ratios': [3, 1.2, 1.2]})
     
-    # [擴充] 固定歷史門檻
-    ATL_DANGER_THRESHOLD = 100
-    PURITY_GOOD_THRESHOLD = 0.8
+    colors = {
+        'Panic': '#4B0082',    # 深紫
+        'Climax': '#FFD700',   # 金色
+        'Bullish': '#228B22',  # 森林綠
+        'Slumping': '#DC143C', # 緋紅
+        'Neutral': '#D3D3D3'   # 淺灰
+    }
 
-    print(f"[Log] 動態門檻計算完成 ({weeks}週基準):")
-    print(f"      - 過熱門檻 (Diff Q95): {diff_q95:.2f}")
-    print(f"      - 恐慌門檻 (ATL Q95): {atl_q95:.2f}")
-    print(f"      - 中位數 (ATH/ATL): {ath_median:.1f} / {atl_median:.1f}")
+    # 上圖：價格與絲滑轉場背景
+    dates = plot_df["start_date"].values
+    for i in range(len(plot_df)-1):
+        ax1.axvspan(dates[i], dates[i+1], color=colors[plot_df.iloc[i]['structure']], alpha=0.3)
+    ax1.plot(plot_df["start_date"], plot_df["spy_close"], color='black', lw=2.5, label="SPY Price")
+    ax1.set_title(f"Market Structure Diagnostic SOP v7.5 (Official Refined Edition)", fontsize=22, fontweight='bold', pad=20)
+    ax1.legend(loc="upper left", fontsize=12)
 
-    # 恐慌標記 (回溯 4 週)
-    weekly_df['panic_trigger'] = weekly_df['atl_count'] > atl_q95
-    weekly_df['recent_panic'] = weekly_df['panic_trigger'].rolling(window=4, min_periods=1).max().astype(bool)
+    # 中圖：淨廣度強度 (3D Smoothed)
+    ax2.fill_between(plot_df["start_date"], 0, plot_df["nb_smooth"], color='blue', alpha=0.3, label="Smoothed Net Breadth")
+    ax2.axhline(q_high, color='orange', ls='--', lw=1.5, label=f"Overheat ({q_high:.2f})")
+    ax2.axhline(q_low, color='purple', ls='--', lw=1.5, label=f"Opportunity ({q_low:.2f})")
+    ax2.set_ylabel("Net Strength", fontsize=14)
+    ax2.legend(loc="upper left", ncol=3)
 
-    # --- 步驟 2: 市場結構定義 (導入 V5 邏輯) ---
-    structure_logs = []
+    # 下圖：氧氣 (ATH) vs 毒素 (ATL) 能量分布
+    ax3.fill_between(plot_df["start_date"], 0, plot_df["ath_z"], color='green', alpha=0.3, label="Oxygen (ATH Strength)")
+    ax3.fill_between(plot_df["start_date"], 0, -plot_df["atl_z"], color='red', alpha=0.3, label="Toxin (ATL Strength)")
+    ax3.axhline(0, color='black', lw=1, alpha=0.5)
+    ax3.set_ylabel("Z-Score Energy", fontsize=14)
+    ax3.legend(loc="upper left", ncol=2)
 
-    def get_structure(row):
-        date_str = row['week_start_date'].strftime('%Y-%m-%d')
-        ath, atl, diff_v, slope, purity = row['ath_count'], row['atl_count'], row['diff'], row['ath_slope'], row['purity']
-        recent_panic = row['recent_panic']
-        
-        # 邏輯判定優先級
-        if atl > atl_q95:
-            res = 'Panic'
-            reason = f"ATL({atl}) > 恐慌門檻({atl_q95:.1f})"
-        elif recent_panic and slope > 0:
-            res = 'Hunting'
-            reason = f"近期有恐慌 且 ATH斜率({slope:.1f}) > 0"
-        elif diff_v > diff_q95:
-            res = 'Climax'
-            reason = f"Diff({diff_v}) > 過熱門檻({diff_q95:.1f})"
-        
-        # [擴充] 健康多頭：需滿足 ATH 高於中位數 且 純度 >= 0.8
-        elif ath > ath_median and atl < atl_median and purity >= PURITY_GOOD_THRESHOLD:
-            res = 'Bullish'
-            reason = f"ATH強勢({ath}) 且 純度高({purity:.2f} >= 0.8)"
-        
-        # [擴充] 結構受損：ATL 超過 260
-        elif atl > ATL_DANGER_THRESHOLD:
-            res = 'Slumping'
-            reason = f"ATL危險({atl} > 260) 市場結構受損"
-            
-        elif ath > ath_median:
-            res = 'Neutral'
-            reason = f"僅 ATH({ath}) > 中位數({ath_median:.1f})，純度不足或 ATL 偏高"
-        else:
-            res = 'Slumping'
-            reason = f"所有看多條件皆不滿足 (ATH:{ath}, ATL:{atl})"
-        
-        structure_logs.append({
-            'date': date_str, 'res': res, 'reason': reason,
-            'ath': ath, 'atl': atl, 'purity': purity
-        })
-        return res
+    # 格式化
+    for ax in [ax1, ax2, ax3]:
+        ax.xaxis.set_major_locator(MonthLocator(interval=1))
+        ax.xaxis.set_major_formatter(DateFormatter("%Y-%m"))
+        ax.grid(axis='y', linestyle=':', alpha=0.5)
 
-    # 執行計算
-    weekly_df['structure'] = weekly_df.apply(get_structure, axis=1)
-
-    # 打印診斷 Log
-    print(f"\n[Diagnostic Log] 最近 {weeks} 週結構判斷明細:")
-    print(f"{'週起始日期':<12} | {'判斷結果':<10} | {'判定原因'}")
-    print("-" * 80)
-    for log in structure_logs[-weeks:]:
-        print(f"{log['date']:<12} | {log['res']:<10} | {log['reason']}")
-
-    # ⭐ 鎖定邏輯
-    if len(weekly_df) > 1:
-        last_idx = weekly_df.index[-1]
-        prev_idx = weekly_df.index[-2]
-        latest_week_start = weekly_df.loc[last_idx, 'week_start_date']
-        this_friday = latest_week_start + pd.Timedelta(days=4)
-        if pd.Timestamp(datetime.date.today()) <= this_friday:
-            weekly_df.loc[last_idx, 'structure'] = weekly_df.loc[prev_idx, 'structure']
-            print(f"\n[Log] 本週尚未結束，將狀態鎖定為前週之 {weekly_df.loc[prev_idx, 'structure']}")
-
-    # --- 步驟 3: 繪製診斷圖表 (V5 雙圖版) ---
-    plot_df = weekly_df.tail(weeks).copy()
-    fig, (ax1, ax3) = plt.subplots(2, 1, figsize=(16, 12), gridspec_kw={'height_ratios': [3, 1]})
-    color_map = {'Hunting':'#BA55D3', 'Panic':'#4B0082', 'Climax':'#FFD700', 'Bullish':'#90EE90', 'Neutral':'#D3D3D3', 'Slumping':'#FFB6C1'}
-
-    # 上圖背景與曲線
-    for i in range(len(plot_df)):
-        start = plot_df.iloc[i]['week_start_date']
-        ax1.axvspan(start, start + pd.Timedelta(days=7), color=color_map[plot_df.iloc[i]['structure']], alpha=0.3)
-
-    ax1.plot(plot_df['week_start_date'], plot_df['ath_count'], color='blue', label='ATH (Oxygen)', marker='o', markersize=3)
-    ax2 = ax1.twinx()
-    ax2.plot(plot_df['week_start_date'], plot_df['atl_count'], color='red', label='ATL (Toxin)', marker='x', ls='--')
-    ax2.axhline(ATL_DANGER_THRESHOLD, color='darkred', linestyle=':', alpha=0.6, label=f'ATL Danger ({ATL_DANGER_THRESHOLD})')
-
-    # [擴充] 下圖：多頭純度
-    ax3.plot(plot_df['week_start_date'], plot_df['purity'], color='green', label='Bullish Purity', linewidth=2)
-    ax3.axhline(0.8, color='darkgreen', linestyle='--', alpha=0.6, label='Bull 0.8')
-    ax3.axhline(0.5, color='orange', linestyle='--', alpha=0.6, label='Neutral 0.5')
-    ax3.fill_between(plot_df['week_start_date'], 0.8, 1.0, color='green', alpha=0.1)
-    ax3.set_ylim(0, 1.05)
-    ax3.set_ylabel("Purity Ratio")
-    ax3.legend(loc='lower left')
-
-    # 標記訊號
-    for s, marker, c, ax_ref, offset in [('Climax', '*', 'gold', ax1, 100), ('Panic', 'v', 'indigo', ax2, 50), ('Hunting', '^', 'darkorchid', ax1, -50)]:
-        pts = plot_df[plot_df['structure'] == s]
-        if not pts.empty:
-            y_val = pts['ath_count'] if ax_ref == ax1 else pts['atl_count']
-            ax_ref.scatter(pts['week_start_date'], y_val + offset, marker=marker, c=c, s=150, edgecolors='black' if s=='Climax' else None)
-
-    # 修改後的狀態看板代碼片段
+    # 狀態看板
     latest = plot_df.iloc[-1]
-    status_text = (
-        f"LATEST: {latest['structure']}\n"
-        f"Purity: {latest['purity']:.1%}\n"
-        f"ATH: {int(latest['ath_count'])}\n"
-        f"ATL: {int(latest['atl_count'])}"
-    )
-    ax1.text(0.02, 0.96, status_text, transform=ax1.transAxes, fontsize=11, fontweight='bold', bbox=dict(facecolor='white', alpha=0.9))
-    ax1.set_title(f'Market Structure Diagnostic SOP v5 (Integrated Purity & ATL Danger)', fontsize=16)
-    fig.autofmt_xdate()
-    
-    patches = [mpatches.Patch(color=color_map[k], alpha=0.3, label=k) for k in color_map]
-    ax1.legend(handles=ax1.get_legend_handles_labels()[0] + ax2.get_legend_handles_labels()[0] + patches, loc='upper right', ncol=2, fontsize=8)
+    status_text = (f"LATEST STATUS: {latest['structure']}\n"
+                   f"DATE: {latest['start_date'].date()}\n"
+                   f"ATH_Z: {latest['ath_z']:.2f} | ATL_Z: {latest['atl_z']:.2f}\n"
+                   f"Net Strength: {latest['nb_smooth']:.2f}")
+    ax1.text(0.02, 0.70, status_text, transform=ax1.transAxes, fontsize=14, fontweight='bold', 
+             bbox=dict(facecolor='white', alpha=0.9, edgecolor='black', boxstyle='round,pad=0.5'))
 
     plt.tight_layout()
-    plt.savefig("weekly_ath_atl_data_last_52_weeks.png")
+    plt.savefig("weekly_ath_atl_data_last_52_weeks.png", dpi=120)
     
-    print(f"\n[Summary] 診斷完成，狀態：{latest['structure']}，純度：{latest['purity']:.1%}")
-    return latest
+    # 保存數據
+    df.to_csv("sop_v7_5_final_data.csv", index=False)
+    print("診斷完成！官方正式版報告已生成。")
+    
+
 
 if __name__ == "__main__":
     df = pd.read_csv("datasheet.csv")
     df_252day = df.tail(252)
     plot_ath_atl_data(df_252day)
-    plot_weekly_ath_atl_data(52)
+    plot_weekly_ath_atl_data(252)
 
