@@ -1,15 +1,19 @@
 import discord
 from discord.ext import commands
+from emotion_analyze.db_lib import TradingDB
+
 # 設置 intents
 intents = discord.Intents.default()  # 或者使用 discord.Intents.all() 獲取更多權限
 intents.message_content = True  # 啟用接收訊息內容的權限
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 
+
 import os
 from file_io import read_from_json , read_lastest_heat_report
 from stock_rules import qualified_stocks
 import time
+from pathlib import Path
 
 ROOT = os.path.dirname(__file__)
 TOKEN = os.path.join(ROOT,"token.json")
@@ -25,6 +29,11 @@ VIX_TERM_PIC_PATH = os.path.join(ROOT,"vix_term.png")
 VIX_TERM_SUMMARY = os.path.join(ROOT,"vix_term_summary.png")
 POSITION_SUMMARY = os.path.join(ROOT,"portfolio_pro_report.png")
 
+EMOTION_DB = Path(__file__).parents[1] / "tradingmirror" / "database" / "emotion.db"
+
+
+emotion_db = TradingDB(db_name=str(EMOTION_DB))
+
 def get_picture_path():
     
     filtered_stocks = qualified_stocks()
@@ -39,6 +48,17 @@ def get_picture_path():
 @bot.event
 async def on_ready():
     print(f'已登入為 {bot.user}!')
+
+@bot.event
+async def on_message(message):
+
+    if message.author == bot.user and message.channel.id != 1507940914033590432:
+        return
+
+    print(f"收到訊息：{message.content} (來自 {message.author})")
+    emotion_db.add_log(message.content)
+
+    await bot.process_commands(message)
 
 @bot.command()
 async def TodayStock(ctx):
