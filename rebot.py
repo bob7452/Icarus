@@ -52,10 +52,11 @@ async def on_ready():
 @bot.event
 async def on_message(message):
 
-    if message.author.name == "ponder1465" and message.channel.id != 1507940914033590432:
+    if message.author.id == 580042439864221696 and message.channel.id != 1507940914033590432:
         return
 
     print(f"收到訊息：{message.content} (聊天室id = {message.channel.id})(來自 {message.author})")
+
     emotion_db.add_log(message.content)
 
     await bot.process_commands(message)
