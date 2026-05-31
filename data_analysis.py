@@ -437,19 +437,33 @@ def gen_rs_report(start_date,weekly_result:market_group,gap_range = 10,reuse_dat
         df = pd.DataFrame(tmp, index=[0])
         rs_dataframe.append(df)
 
+    # 1. 合併資料
     ALLDF = pd.concat(rs_dataframe, ignore_index=True)
-    ALLDF = ALLDF.sort_values(by='relative_strength',ascending=False)
     
-    total_count = len(rs_list.keys())
-    avg = 100 / (total_count -1)
-    ranklist = [100 - avg * i for i in range(total_count)]
-    ranklist[-1] = 0
+    # 2. 過濾異常值
+    ALLDF = ALLDF[ALLDF['relative_strength'] != -1].copy()
     
-    ALLDF['rank'] = ranklist
-
+    # 3. 排序 (必須先排序，這樣 rank 才是根據強度給予的)
+    ALLDF = ALLDF.sort_values(by='relative_strength', ascending=False)
+    
+    # 4. 安全計算 rank
+    n = len(ALLDF)
+    if n > 1:
+        # 使用過濾後的長度 n 來計算
+        avg = 100 / (n - 1)
+        ranklist = [100 - avg * i for i in range(n)]
+        ranklist[-1] = 0  # 確保最後一名為 0
+        ALLDF['rank'] = ranklist
+    elif n == 1:
+        ALLDF['rank'] = 100.0  # 只有一筆資料時給予滿分
+    else:
+        # 如果全部都被過濾掉了，處理空資料的情況
+        print("沒有有效的數據可以計算排名")
+    
+    # 5. 儲存檔案
     daystring = start_date.strftime("%Y-%m-%d")
-    file_name = os.path.join("rs_report","rs_model_" + daystring + ".csv")
-    ALLDF.to_csv(file_name,index=False)
+    file_name = os.path.join("rs_report", "rs_model_" + daystring + ".csv")
+    ALLDF.to_csv(file_name, index=False)
 
 class Ath_model:
     
