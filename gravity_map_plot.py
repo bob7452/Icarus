@@ -18,7 +18,7 @@ warnings.filterwarnings('ignore')
 # 🎛️ 核心篩選與視覺化參數控制面板 (可依需求自由調整)
 # =========================================================
 RANK_THRESHOLD = 50.0         # 候選名單門檻：只採納 rank > 此分數的強勢股
-CORR_EDGE_THRESHOLD = 0.55   # 連線相關度門檻：大於此數值才建立引力連線 (調高可讓畫面更清爽)
+CORR_EDGE_THRESHOLD = 0.6   # 連線相關度門檻：大於此數值才建立引力連線 (調高可讓畫面更清爽)
 TOP_GALAXY_COUNT = 8          # 最終網頁上最多顯示的前幾大核心星系
 
 def setup_environment(dir_name="solar_system_test"):
@@ -430,27 +430,27 @@ def deploy_to_github(source_path, target_path):
         print(f"❌ [Deploy] 同步失敗: {e}")
 
 if __name__ == "__main__":
-    # json_file = Path("candles.json")
+    json_file = Path("candles.json")
 
-    # if not json_file.exists():
-    #     print(f"❌ Error: Cannot find {json_file}")
-    #     exit(1)
+    if not json_file.exists():
+        print(f"❌ Error: Cannot find {json_file}")
+        exit(1)
 
-    # RS_REPORT_FOLDER = Path(__file__).parent / "rs_report"
+    RS_REPORT_FOLDER = Path(__file__).parent / "rs_report"
 
-    # try:
-    #     rs_csv = next(RS_REPORT_FOLDER.glob("rs_model_*.csv"))
-    # except StopIteration:
-    #     print("❌ Error: No rs_model_*.csv found in rs_report/")
-    #     exit(1)
+    try:
+        rs_csv = next(RS_REPORT_FOLDER.glob("rs_model_*.csv"))
+    except StopIteration:
+        print("❌ Error: No rs_model_*.csv found in rs_report/")
+        exit(1)
 
     output_dir = setup_environment("solar_system_test")
 
-    # analyze_convergence_gpu(
-    #     str(rs_csv),
-    #     str(json_file),
-    #     output_dir,
-    # )
+    analyze_convergence_gpu(
+        str(rs_csv),
+        str(json_file),
+        output_dir,
+    )
 
     source_path = Path(output_dir) / 'gravity_map_interactive.html'
     target_path = Path(__file__).parents[1] / "galaxy-dashboard" /  'gravity_map_interactive.html'
