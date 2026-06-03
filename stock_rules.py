@@ -1,45 +1,43 @@
-from file_io import read_lastest_rs_report, read_lastest_heat_report
+from file_io import read_lastest_rs_report , read_lastest_heat_report
 
-# 改為大寫，代表全域常數；並將 list 改為 set，搜尋速度更快 (O(1) 複雜度)
-STOCKS_TO_EXCLUDE = {'MOBBW', 'NUKKW'}
+stocks_to_exclude = ['MOBBW', 'NUKKW']
 
-def qualified_stocks(df):
-    """強勢突破股篩選策略"""
-    return df[
-        df['close_to_high_10%'] & 
-        df['powerful_than_spy'] & 
-        df['group_powerful_than_spy'] &
-        df['breakout_with_big_volume'] &
-        (df['rank'] >= 90) &
-        ~df['name'].isin(STOCKS_TO_EXCLUDE)
-        # df['above_all_moving_avg_line']  # 如果想啟用，直接取消註解即可
-    ]
-
-def powerful_than_spy_stock(df):
-    """大盤超額收益股篩選策略"""
-    return df[
-        df['powerful_than_spy'] & 
-        df['group_powerful_than_spy'] &
-        df['above_all_moving_avg_line']
-    ]
-
-def rs_above_90(df):
-    """RS 評級大於 90 的股票"""
-    return df[df['rank'] >= 90]
-
-def heat_rank_rs90(rs_df, heat_df):
-    """
-    交集策略：找出同時具備高熱度與高 RS 評級的股票。
-    支援 heat_df 是 DataFrame（含 'name' 欄位）或是純代號列表。
-    """
-    # 取得 RS > 90 的股票名稱集合
-    rs_names = set(rs_above_90(rs_df)['name'])
+def qualified_stocks():
+    df = read_lastest_rs_report()
     
-    # 判斷 heat_df 是 DataFrame 還是一般的 list/set
-    if hasattr(heat_df, 'columns') and 'name' in heat_df.columns:
-        heat_names = set(heat_df['name'])
-    else:
-        heat_names = set(heat_df)
+    filtered_stocks = df[
+        (df['close_to_high_10%'] == True) & 
+        (df['powerful_than_spy'] == True) & 
+        (df['group_powerful_than_spy'] == True) &
+        (df['breakout_with_big_volume'] == True) &
+        (~df['name'].isin(stocks_to_exclude))
+        # (df['above_all_moving_avg_line'] == True)
+    ]
 
-    # 使用 set 的 intersection 取交集，效率極高
-    return list(rs_names.intersection(heat_names))
+    return filtered_stocks
+
+def powerful_than_spy_stock():
+    df = read_lastest_rs_report()
+    
+    filtered_stocks = df[
+        (df['powerful_than_spy'] == True) & 
+        (df['group_powerful_than_spy'] == True) &
+        (df['above_all_moving_avg_line'] == True)
+    ]
+
+    return filtered_stocks
+
+def rs_above_90():
+    df = read_lastest_rs_report()
+    
+    filtered_stocks = df[
+        (df['rank'] >= 90)  
+    ]
+
+    return filtered_stocks
+
+def heat_rank_rs90():
+    heat_df = read_lastest_heat_report()
+    rs_df = rs_above_90()['name'].to_list()
+
+    return list(set(heat_df) & set(rs_df))

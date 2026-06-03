@@ -17,8 +17,8 @@ warnings.filterwarnings('ignore')
 # =========================================================
 # 🎛️ 核心篩選與視覺化參數控制面板 (可依需求自由調整)
 # =========================================================
-RANK_THRESHOLD = 75.0         # 候選名單門檻：只採納 rank > 此分數的強勢股
-CORR_EDGE_THRESHOLD = 0.55   # 連線相關度門檻：大於此數值才建立引力連線 (調高可讓畫面更清爽)
+RANK_THRESHOLD = 50.0         # 候選名單門檻：只採納 rank > 此分數的強勢股
+CORR_EDGE_THRESHOLD = 0.6   # 連線相關度門檻：大於此數值才建立引力連線 (調高可讓畫面更清爽)
 TOP_GALAXY_COUNT = 8          # 最終網頁上最多顯示的前幾大核心星系
 
 def setup_environment(dir_name="solar_system_test"):
@@ -53,7 +53,7 @@ def load_all_candles_data(json_path, keep_tickers):
     return price_df
 
 # =========================================================
-# 🔍 搜尋與高亮功能注入腳本
+# 🔍 新增：搜尋與高亮功能注入腳本
 # =========================================================
 def inject_search_feature(html_filepath):
     """
@@ -174,7 +174,6 @@ def plot_interactive_html(cpu_edges_df, result_df, output_path):
         print("❌ pyecharts 未安裝。請先執行: pip install pyecharts")
         return
 
-    # 按照 Cluster 內部的節點總數由多到少，抓取前幾個大星系
     top_clusters = result_df['Cluster_ID'].value_counts().head(TOP_GALAXY_COUNT).index.tolist()
     if not top_clusters:
         print("⚠️ 沒有找到符合條件的星系群組合。")
@@ -195,6 +194,7 @@ def plot_interactive_html(cpu_edges_df, result_df, output_path):
 
         nodes = []
         for _, row in cluster_nodes_df.iterrows():
+            # 強制轉型，防止 JS 解析 Numpy 型態時崩潰
             node_name = str(row['Ticker'])
             role = str(row['Role'])
             rs_score = float(max(0.0, row['rank']))
@@ -256,7 +256,7 @@ def plot_interactive_html(cpu_edges_df, result_df, output_path):
             opts.GraphCategory(name="跟隨衛星 (Satellite)"),
         ]
 
-        # 建立力導向圖
+        # 建立力導向圖，使用 width="95vw" 避免 Tab 切換時畫布縮成 0
         g = (
             Graph(init_opts=opts.InitOpts(width="95vw", height="850px", theme="dark", bg_color="#02050a"))
             .add(
@@ -268,7 +268,7 @@ def plot_interactive_html(cpu_edges_df, result_df, output_path):
                 is_roam=True,              # 允許縮放與畫布拖拽
                 is_draggable=True,         # 允許滑鼠抓取單個節點
                 is_focusnode=True,         # 滑鼠懸停時高亮相連節點與線條
-                repulsion=1000,            # 斥力參數
+                repulsion=1000,            # 斥力參數，數值越大分子拉得越開
                 edge_length=[60, 180],     # 線條彈性長度
                 gravity=0.15,              # 中心收束引力
                 linestyle_opts=opts.LineStyleOpts(width=1.5, curve=0.15, opacity=0.5, color="source"),
@@ -281,7 +281,7 @@ def plot_interactive_html(cpu_edges_df, result_df, output_path):
             )
             .set_global_opts(
                 title_opts=opts.TitleOpts(
-                    title=f"🌌 {cluster} (門檻 Rank > {RANK_THRESHOLD})", 
+                    title=f"🌌 {cluster} 分子結構圖 (門檻 Rank > {RANK_THRESHOLD})", 
                     pos_left="center", 
                     title_textstyle_opts=opts.TextStyleOpts(color="#ffffff", font_size=16)
                 ),
@@ -294,12 +294,14 @@ def plot_interactive_html(cpu_edges_df, result_df, output_path):
             )
         )
         
-        tab.add(g, f"{cluster}")
+        tab.add(g, f"{cluster.replace('_', ' ')}")
 
     tab.render(output_path)
     print(f"✅ Galaxy Molecular Map (Tab View) saved to {output_path}")
 
-    # 呼叫注入腳本，將搜尋功能加進 HTML 中
+    # =========================================================
+    # 🔗 呼叫注入腳本，將搜尋功能加進剛產生的 HTML 中
+    # =========================================================
     inject_search_feature(output_path)
     print("✅ Search and Highlight feature injected successfully!")
 
@@ -318,13 +320,14 @@ def analyze_convergence_gpu(rs_csv_path, candles_json_path, output_dir):
         bad_sector_mask = rs_df['industry_name'].str.contains(exclude_keywords, case=False, na=False)
         niche_industries = rs_df['industry_name'].value_counts()[lambda x: x < 3].index
         
-        # 篩選出 乾淨的產業 + RS大於門檻 的超級名單
+        # 篩選出 乾淨的產業 + RS大於門檻 的超級名單 (白名單)
         valid_rs_df = rs_df[
             ~bad_sector_mask & 
             ~rs_df['industry_name'].isin(niche_industries) & 
             (rs_df['rank'] > RANK_THRESHOLD)
         ]
         
+        # 將符合條件的股票名稱加入白名單集合
         keep_tickers = set(valid_rs_df['name'].tolist())
         rs_dict = dict(zip(valid_rs_df['name'], valid_rs_df['rank']))
         ind_dict = dict(zip(valid_rs_df['name'], valid_rs_df['industry_name']))
@@ -342,6 +345,7 @@ def analyze_convergence_gpu(rs_csv_path, candles_json_path, output_dir):
     edges = gdf_corr.melt(id_vars=['source'], var_name='destination', value_name='weight')
     edges = edges[edges['source'] < edges['destination']]
     
+    # 用較寬容的 0.5 去建立基礎連線網路，以便 cugraph 分群
     math_edges = edges[edges['weight'] >= 0.5]
     
     print("4. [GPU] Building network and computing Centrality...")
@@ -357,38 +361,10 @@ def analyze_convergence_gpu(rs_csv_path, candles_json_path, output_dir):
     
     results = []
     grouped = cpu_results.groupby('partition')
-    
-    # 用於防範產業名稱重複的計數器字典
-    industry_seen_count = {}
-    
-    for partition_id, group in grouped:
-        if len(group) < 3: 
-            continue  # 小群組門檻放寬到 3 顆股票
-            
+    for cluster_id, (partition_id, group) in enumerate(grouped):
+        if len(group) < 3: continue  # 降維後小群組門檻放寬到 3 顆股票
         star_ticker = group.loc[group['eigenvector_centrality'].idxmax()]['vertex']
         
-        # 📊 核心命名邏輯：統計該星系內部所有節點的產業，找出最大宗族群
-        cluster_tickers = group['vertex'].tolist()
-        cluster_industries = [ind_dict[t] for t in cluster_tickers if t in ind_dict]
-        
-        if cluster_industries:
-            # 找出出現次數最多的產業名稱
-            main_industry = max(set(cluster_industries), key=cluster_industries.count)
-        else:
-            main_industry = "多元綜合族群"
-            
-        # 移除或替換不合規的特殊符號，確保 Pyecharts 生成 HTML 元件 ID 時正常
-        clean_industry = main_industry.replace('/', '&').replace('\\', '&').strip()
-        
-        # 避免重名防禦機制：如果這個產業之前出現過，自動補上編號
-        if clean_industry not in industry_seen_count:
-            industry_seen_count[clean_industry] = 1
-            galaxy_name = f"{clean_industry} 族群"
-        else:
-            industry_seen_count[clean_industry] += 1
-            galaxy_name = f"{clean_industry} 族群 ({industry_seen_count[clean_industry]})"
-        
-        # 建立節點資料
         for _, row in group.iterrows():
             ticker = row['vertex']
             cent_val = row['eigenvector_centrality']
@@ -396,13 +372,13 @@ def analyze_convergence_gpu(rs_csv_path, candles_json_path, output_dir):
             
             role = "1_Star" if ticker == star_ticker else "2_Planet" if corr_with_star >= 0.7 else "3_Satellite"
             
+            # 因為已經全盤白名單化，這裡取資料保證不會報錯或出現預設值 0.0
             rs_score = rs_dict[ticker]
             ind_display = ind_dict[ticker]
             
             results.append({
-                "Cluster_ID": galaxy_name,  # 👈 換上純產業族群名稱！
-                "Ticker": ticker, 
-                "Role": role,
+                "Cluster_ID": f"Galaxy_{cluster_id + 1}",
+                "Ticker": ticker, "Role": role,
                 "Corr_with_Star": round(corr_with_star, 4),
                 "Centrality": round(cent_val, 4),
                 "rank": round(rs_score, 4),
@@ -418,21 +394,35 @@ def analyze_convergence_gpu(rs_csv_path, candles_json_path, output_dir):
     print(f"✅ Total execution time: {time.time() - start_time:.2f} seconds")
 
 def deploy_to_github(source_path, target_path):
+    """
+    使用 pathlib 將檔案複製並自動執行 git 指令進行部署
+    """
     print("🚀 [Deploy] 開始同步到 GitHub...")
     
     src = Path(source_path)
     dst = Path(target_path)
     
     try:
+        # 1. 確保目標資料夾存在 (如果不存在則建立)
         dst.parent.mkdir(parents=True, exist_ok=True)
+        
+        # 2. 複製檔案
         shutil.copy2(src, dst)
         
+        # 3. 定義 Git 目錄與日期
         target_dir = dst.parent
         date_str = datetime.now().strftime('%Y-%m-%d')
         
-        subprocess.run(["git", "add", dst.name], cwd=target_dir, check=True)
-        subprocess.run(["git", "commit", "-m", f"Update: {date_str}"], cwd=target_dir, check=True)
-        subprocess.run(["git", "push"], cwd=target_dir, check=True)
+        # 4. 執行 Git 指令
+        # 使用 cwd 參數指定工作目錄，不需要頻繁切換 os.chdir
+        git_cmd = ["git", "add", dst.name]
+        subprocess.run(git_cmd, cwd=target_dir, check=True)
+        
+        commit_cmd = ["git", "commit", "-m", f"Update: {date_str}"]
+        subprocess.run(commit_cmd, cwd=target_dir, check=True)
+        
+        push_cmd = ["git", "push"]
+        subprocess.run(push_cmd, cwd=target_dir, check=True)
         
         print(f"✅ [Deploy] 成功！{date_str} 版本已推送至 GitHub。")
         
@@ -463,5 +453,5 @@ if __name__ == "__main__":
     )
 
     source_path = Path(output_dir) / 'gravity_map_interactive.html'
-    target_path = Path(__file__).parents[1] / "galaxy-dashboard" / 'gravity_map_interactive.html'
-    deploy_to_github(source_path=source_path, target_path=target_path)
+    target_path = Path(__file__).parents[1] / "galaxy-dashboard" /  'gravity_map_interactive.html'
+    deploy_to_github(source_path=source_path,target_path=target_path)
