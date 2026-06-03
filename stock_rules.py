@@ -10,6 +10,7 @@ def qualified_stocks():
         (df['powerful_than_spy'] == True) & 
         (df['group_powerful_than_spy'] == True) &
         (df['breakout_with_big_volume'] == True) &
+        (df['rank'] >= 90) &
         (~df['name'].isin(stocks_to_exclude))
         # (df['above_all_moving_avg_line'] == True)
     ]
