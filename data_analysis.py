@@ -440,8 +440,14 @@ def gen_rs_report(start_date,weekly_result:market_group,gap_range = 10,reuse_dat
     # 1. 合併資料
     ALLDF = pd.concat(rs_dataframe, ignore_index=True)
     
-    # 2. 過濾異常值
+    # 2. 過濾異常值與特定產業
+    # 移除相對強度為 -1 的異常值
     ALLDF = ALLDF[ALLDF['relative_strength'] != -1].copy()
+    
+    # 排除特定產業 (Bio, Medical, Drug, Health, Diagnostics, Banks Regional)
+    exclude_keywords = 'Bio|Medical|Drug|Health|Diagnostics|Banks|REIT|Utilities|Gold|Silver|Precious|Asset Management'
+    bad_sector_mask = ALLDF['industry_name'].str.contains(exclude_keywords, case=False, na=False)
+    ALLDF = ALLDF[~bad_sector_mask].copy() # 使用 ~ 取反向，只保留不含這些關鍵字的資料
     
     # 3. 排序 (必須先排序，這樣 rank 才是根據強度給予的)
     ALLDF = ALLDF.sort_values(by='relative_strength', ascending=False)
@@ -464,7 +470,6 @@ def gen_rs_report(start_date,weekly_result:market_group,gap_range = 10,reuse_dat
     daystring = start_date.strftime("%Y-%m-%d")
     file_name = os.path.join("rs_report", "rs_model_" + daystring + ".csv")
     ALLDF.to_csv(file_name, index=False)
-
 class Ath_model:
     
     '''
