@@ -1,17 +1,16 @@
 import pandas as pd
-from datetime import timedelta
+from datetime import timedelta, datetime
 from option.sql_lib import fetch_data_from_option_db
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np 
 import os 
-from datetime import datetime, timedelta
 from pandas_market_calendars import get_calendar
 import sys
 
 
 # =================================================================
-# STEP 1: Logic to find the nearest monthly expiration (Third Friday) - UNCHANGED
+# STEP 1: Logic to find the nearest monthly expiration (Third Friday) - FIXED
 # =================================================================
 
 def find_nearest_monthly_expiration(date):
@@ -19,6 +18,8 @@ def find_nearest_monthly_expiration(date):
     Finds the first third Friday of a month that strictly occurs AFTER the given snapshot_date (date).
     This ensures the contract rolls to the next month if the snapshot date is on the current expiration.
     """
+    # 實例化日曆，用來判斷國定假日 (例如 Juneteenth, Good Friday 等)
+    nyse = get_calendar('NYSE')
     
     def get_third_friday(d):
         """Helper function to find the 3rd Friday of the month of date 'd'."""
@@ -30,6 +31,11 @@ def find_nearest_monthly_expiration(date):
             if d.weekday() == 4: 
                 friday_count += 1
             if friday_count == 3:
+                # 檢查這天是否為假日
+                valid_days = nyse.valid_days(start_date=d, end_date=d)
+                if valid_days.empty:
+                    # 如果週五休市，選擇權標準結算日會提前一天到週四
+                    return d - timedelta(days=1)
                 return d
             
             # Move to the next day
@@ -39,11 +45,12 @@ def find_nearest_monthly_expiration(date):
     expiry_date = get_third_friday(date)
     
     # 2. Check if this expiration has passed or is today (expiry_date <= date)
-    # if expiry_date <= date:
-    # Roll to the next month's expiry.
-    next_month_start = date.replace(day=28) + timedelta(days=4)
-    next_month_start = next_month_start.replace(day=1)
-    expiry_date = get_third_friday(next_month_start)
+    # ✅ 取消註解：檢查是否需要換到下個月
+    if expiry_date <= date:
+        # Roll to the next month's expiry.
+        next_month_start = date.replace(day=28) + timedelta(days=4)
+        next_month_start = next_month_start.replace(day=1)
+        expiry_date = get_third_friday(next_month_start)
         
     return expiry_date
 

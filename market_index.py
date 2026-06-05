@@ -2,11 +2,11 @@ import os
 import pandas as pd
 import matplotlib.pyplot as plt
 import datetime
+import numpy as np
 from matplotlib.dates import MonthLocator, DateFormatter
 
 
 def plot_ath_atl_data(df):
-
     # 轉換日期欄位
     df["start_date"] = pd.to_datetime(df["start_date"])
 
@@ -28,10 +28,31 @@ def plot_ath_atl_data(df):
     ax2.plot(df["start_date"], df["atl_count"], color=color_atl, label='ATL Count')
     ax2.tick_params(axis='y', labelcolor=color_atl)
 
+    # --- 新增：取得最新數據並繪製在左上角 ---
+    # 1. 取得 Dataframe 最後一列（最新的資料）
+    latest_row = df.iloc[-1]
+    latest_date = latest_row["start_date"].strftime("%Y-%m-%d")
+    latest_ath = latest_row["ath_count"]
+    latest_atl = latest_row["atl_count"]
+
+    # 2. 設定要顯示的文字格式
+    text_str = f"Latest ({latest_date})\nATH: {latest_ath} | ATL: {latest_atl}"
+
+    # 3. 將文字放置於左上角
+    # x=0.02, y=0.95 代表圖表 X 軸 2%、Y 軸 95% 的相對位置
+    ax1.text(0.02, 0.95, text_str, 
+             transform=ax1.transAxes, 
+             fontsize=12, 
+             fontweight='bold',
+             verticalalignment='top', 
+             bbox=dict(boxstyle='round,pad=0.5', facecolor='white', edgecolor='gray', alpha=0.8))
+    # ----------------------------------------
+
     plt.title('ATH vs ATL Count Over Time')
     plt.grid(True)
-    # plt.tight_layout()
-    # plt.show()
+    
+    # 建議保留 tight_layout 避免雙軸標籤被截斷
+    plt.tight_layout()
     plt.savefig("ath_atl_data.png")
 
 def plot_weekly_ath_atl_data(plot_days=252):
@@ -110,6 +131,22 @@ def plot_weekly_ath_atl_data(plot_days=252):
 
     # 上圖：價格與絲滑轉場背景
     dates = plot_df["start_date"].values
+    
+    # 修改點：迴圈跑好跑滿 len(plot_df)，不再 -1
+    for i in range(len(plot_df)):
+        start_d = dates[i]
+        
+        # 修改點：如果是最後一天，色塊的終點往右推遲 1 天
+        if i < len(plot_df) - 1:
+            end_d = dates[i+1]
+        else:
+            end_d = dates[i] + np.timedelta64(1, 'D') 
+            
+        ax1.axvspan(start_d, end_d, color=colors[plot_df.iloc[i]['structure']], alpha=0.3)
+
+    #ax1.plot(plot_df["start_date"], plot_df["spy_close"], color='black', lw=2.5, label="SPY Price")
+    ax1.set_title(f"Market Structure Diagnostic SOP v7.5 (Official Refined Edition)", fontsize=22, fontweight='bold', pad=20)
+    ax1.legend(loc="upper left", fontsize=12)
     for i in range(len(plot_df)-1):
         ax1.axvspan(dates[i], dates[i+1], color=colors[plot_df.iloc[i]['structure']], alpha=0.3)
     ax1.plot(plot_df["start_date"], plot_df["spy_close"], color='black', lw=2.5, label="SPY Price")
