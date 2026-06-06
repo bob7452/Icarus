@@ -348,7 +348,9 @@ def analyze_convergence_gpu(rs_csv_path, candles_json_path, output_dir):
     G = cugraph.Graph(directed=False)
     G.from_cudf_edgelist(math_edges, source='source', destination='destination', edge_attr='weight')
     partitions, _ = cugraph.louvain(G)
-    centrality = cugraph.eigenvector_centrality(G)
+    
+    # 🔧 【修正點 1】將 eigenvector_centrality 替換為不會發生收斂失敗的 pagerank
+    centrality = cugraph.pagerank(G)
     
     print("5. [GPU -> CPU] Assigning Roles and Mapping RS Alpha...")
     cpu_results = partitions.merge(centrality, on='vertex').to_pandas()
@@ -365,7 +367,8 @@ def analyze_convergence_gpu(rs_csv_path, candles_json_path, output_dir):
         if len(group) < 3: 
             continue  # 小群組門檻放寬到 3 顆股票
             
-        star_ticker = group.loc[group['eigenvector_centrality'].idxmax()]['vertex']
+        # 🔧 【修正點 2】將抓取最大值的欄位從 eigenvector_centrality 改為 pagerank
+        star_ticker = group.loc[group['pagerank'].idxmax()]['vertex']
         
         # 📊 核心命名邏輯：統計該星系內部所有節點的產業，找出最大宗族群
         cluster_tickers = group['vertex'].tolist()
@@ -391,7 +394,8 @@ def analyze_convergence_gpu(rs_csv_path, candles_json_path, output_dir):
         # 建立節點資料
         for _, row in group.iterrows():
             ticker = row['vertex']
-            cent_val = row['eigenvector_centrality']
+            # 🔧 【修正點 3】將指派值的欄位改為 pagerank
+            cent_val = row['pagerank']
             corr_with_star = pd_corr.loc[ticker, star_ticker] if ticker != star_ticker else 1.0
             
             role = "1_Star" if ticker == star_ticker else "2_Planet" if corr_with_star >= 0.7 else "3_Satellite"
@@ -416,7 +420,6 @@ def analyze_convergence_gpu(rs_csv_path, candles_json_path, output_dir):
     result_df = pd.DataFrame(results).sort_values(by=['Cluster_ID', 'Role', 'rank'], ascending=[True, True, False])
     plot_interactive_html(cpu_edges_df, result_df, os.path.join(output_dir, 'gravity_map_interactive.html'))
     print(f"✅ Total execution time: {time.time() - start_time:.2f} seconds")
-
 def deploy_to_github(source_path, target_path):
     print("🚀 [Deploy] 開始同步到 GitHub...")
     
