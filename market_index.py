@@ -131,6 +131,7 @@ def plot_weekly_ath_atl_data(plot_days=252):
 
     # 上圖：價格與絲滑轉場背景
     dates = plot_df["start_date"].values
+    print(dates)
     
     # 修改點：迴圈跑好跑滿 len(plot_df)，不再 -1
     for i in range(len(plot_df)):

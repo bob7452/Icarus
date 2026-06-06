@@ -10,8 +10,8 @@ python3 daily_run.py
 cp -f datasheet.csv ~/GoogleDrive/datasheet.csv
 python3 heat_parser.py
 python3 gen_rs_picture.py
-python3 market_index.py
 python3 mspi.py
+python3 market_index.py
 python3 update_news.py
 python3 tradingview_list.py
 python3 gravity_map_plot.py
