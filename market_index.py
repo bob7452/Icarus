@@ -1,14 +1,17 @@
 import os
-import pandas as pd
-import matplotlib.pyplot as plt
 import datetime
+import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 from matplotlib.dates import MonthLocator, DateFormatter
-
 
 def plot_ath_atl_data(df):
     # 轉換日期欄位
     df["start_date"] = pd.to_datetime(df["start_date"])
+
+    # 輸出 Debug CSV，方便檢查第一張圖的數據
+    df.to_csv("debug_ath_atl_data.csv", encoding="utf-8-sig", index=False)
+    print("[Debug] 已產生 debug_ath_atl_data.csv")
 
     # 繪製雙軸圖
     fig, ax1 = plt.subplots(figsize=(12, 6))
@@ -29,17 +32,15 @@ def plot_ath_atl_data(df):
     ax2.tick_params(axis='y', labelcolor=color_atl)
 
     # --- 新增：取得最新數據並繪製在左上角 ---
-    # 1. 取得 Dataframe 最後一列（最新的資料）
     latest_row = df.iloc[-1]
     latest_date = latest_row["start_date"].strftime("%Y-%m-%d")
     latest_ath = latest_row["ath_count"]
     latest_atl = latest_row["atl_count"]
 
-    # 2. 設定要顯示的文字格式
+    # 設定要顯示的文字格式
     text_str = f"Latest ({latest_date})\nATH: {latest_ath} | ATL: {latest_atl}"
 
-    # 3. 將文字放置於左上角
-    # x=0.02, y=0.95 代表圖表 X 軸 2%、Y 軸 95% 的相對位置
+    # 將文字放置於左上角
     ax1.text(0.02, 0.95, text_str, 
              transform=ax1.transAxes, 
              fontsize=12, 
@@ -54,10 +55,11 @@ def plot_ath_atl_data(df):
     # 建議保留 tight_layout 避免雙軸標籤被截斷
     plt.tight_layout()
     plt.savefig("ath_atl_data.png")
+    plt.close() # 加上 close 避免記憶體洩漏
 
 def plot_weekly_ath_atl_data(plot_days=252):
     print(f"\n{'='*30}")
-    print(f"開始執行市場結構診斷 (SOP v5) - {datetime.date.today()}")
+    print(f"開始執行市場結構診斷 (SOP v5/v7.5) - {datetime.date.today()}")
     print(f"{'='*30}")
     
     # --- 步驟 0: 資料載入與彙整 ---
@@ -119,6 +121,11 @@ def plot_weekly_ath_atl_data(plot_days=252):
 
     # 4. 儀表板視覺化 (三層看板)
     plot_df = df.tail(plot_days).copy()
+    
+    # 輸出 Debug CSV，儲存「真正被畫進圖表」的這一截數據
+    plot_df.to_csv("debug_plot_weekly_ath_atl.csv", encoding='utf-8-sig', index=False)
+    print(f"[Debug] 已產生 debug_plot_weekly_ath_atl.csv，包含最終繪製的 {len(plot_df)} 筆數據")
+
     fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(16, 18), gridspec_kw={'height_ratios': [3, 1.2, 1.2]})
     
     colors = {
@@ -131,13 +138,12 @@ def plot_weekly_ath_atl_data(plot_days=252):
 
     # 上圖：價格與絲滑轉場背景
     dates = plot_df["start_date"].values
-    print(dates)
     
-    # 修改點：迴圈跑好跑滿 len(plot_df)，不再 -1
+    # 【已修復】刪除了原本衝突重複的迴圈，並保留平滑轉場邏輯
     for i in range(len(plot_df)):
         start_d = dates[i]
         
-        # 修改點：如果是最後一天，色塊的終點往右推遲 1 天
+        # 如果是最後一天，色塊的終點往右推遲 1 天
         if i < len(plot_df) - 1:
             end_d = dates[i+1]
         else:
@@ -145,13 +151,9 @@ def plot_weekly_ath_atl_data(plot_days=252):
             
         ax1.axvspan(start_d, end_d, color=colors[plot_df.iloc[i]['structure']], alpha=0.3)
 
-    #ax1.plot(plot_df["start_date"], plot_df["spy_close"], color='black', lw=2.5, label="SPY Price")
-    ax1.set_title(f"Market Structure Diagnostic SOP v7.5 (Official Refined Edition)", fontsize=22, fontweight='bold', pad=20)
-    ax1.legend(loc="upper left", fontsize=12)
-    for i in range(len(plot_df)-1):
-        ax1.axvspan(dates[i], dates[i+1], color=colors[plot_df.iloc[i]['structure']], alpha=0.3)
+    # 【已修復】解除 SPY Price 的註解，刪除重複的標題與圖例設置
     ax1.plot(plot_df["start_date"], plot_df["spy_close"], color='black', lw=2.5, label="SPY Price")
-    ax1.set_title(f"Market Structure Diagnostic SOP v7.5 (Official Refined Edition)", fontsize=22, fontweight='bold', pad=20)
+    ax1.set_title("Market Structure Diagnostic SOP v7.5 (Official Refined Edition)", fontsize=22, fontweight='bold', pad=20)
     ax1.legend(loc="upper left", fontsize=12)
 
     # 中圖：淨廣度強度 (3D Smoothed)
@@ -176,20 +178,26 @@ def plot_weekly_ath_atl_data(plot_days=252):
 
     # 狀態看板
     latest = plot_df.iloc[-1]
-    status_text = (f"LATEST STATUS: {latest['structure']}\n"
-                   f"DATE: {latest['start_date'].date()}\n"
-                   f"ATH_Z: {latest['ath_z']:.2f} | ATL_Z: {latest['atl_z']:.2f}\n"
-                   f"Net Strength: {latest['nb_smooth']:.2f}")
-    ax1.text(0.02, 0.70, status_text, transform=ax1.transAxes, fontsize=14, fontweight='bold', 
-             bbox=dict(facecolor='white', alpha=0.9, edgecolor='black', boxstyle='round,pad=0.5'))
+    status_text = (
+        f"LATEST STATUS: {latest['structure']}\n"
+        f"DATE: {latest['start_date'].date()}\n"
+        f"----------------------------------\n"
+        f"Raw Energy  : ATH {latest['ath_z']:.2f} | ATL {latest['atl_z']:.2f}\n"
+        f"Net Breadth : Raw {latest['net_breadth']:.2f} | Smoothed {latest['nb_smooth']:.2f}"
+    )
+    
+    # 稍微調整字體大小與行距，讓版面更整齊 (可選用 monospace 等寬字體讓數字對齊)
+    ax1.text(0.02, 0.65, status_text, transform=ax1.transAxes, fontsize=13, fontweight='bold', 
+             bbox=dict(facecolor='white', alpha=0.9, edgecolor='black', boxstyle='round,pad=0.6'),
+             family='monospace')
 
     plt.tight_layout()
     plt.savefig("weekly_ath_atl_data_last_52_weeks.png", dpi=120)
+    plt.close() # 加上 close 避免記憶體洩漏
     
     # 保存數據
     df.to_csv("sop_v7_5_final_data.csv", index=False)
     print("診斷完成！官方正式版報告已生成。")
-    
 
 
 if __name__ == "__main__":
