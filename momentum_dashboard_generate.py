@@ -14,16 +14,16 @@ def find_latest_file(pattern='rs_model_*.csv'):
         list_of_files.extend(glob.glob(p))
         
     if not list_of_files:
-        raise FileNotFoundError(f"找不到任何符合的 CSV 檔案。請確認資料夾內有 rs_model_*.csv")
+        raise FileNotFoundError(f"No matching CSV files found. Ensure rs_model_*.csv exists.")
         
     latest_file = max(list_of_files, key=os.path.getmtime)
     return latest_file
 
 def process_data(input_file):
-    print(f"📥 Loading raw data: {input_file} ...")
+    print(f"[INFO] Loading raw data: {input_file} ...")
     df = pd.read_csv(input_file)
 
-    print("⚙️ Calculating Momentum Acceleration Factor ...")
+    print("[INFO] Calculating Momentum Acceleration Factor ...")
     df['season_rank'] = df['current_season_change'].rank(pct=True) * 100
     df['acceleration'] = df['season_rank'] - df['rank']
 
@@ -32,7 +32,7 @@ def process_data(input_file):
     return json_data
 
 def generate_html(json_data, output_html):
-    print("🎨 Generating Ultimate Interactive Dashboard with Search and Raw Data Tab ...")
+    print("[INFO] Generating Interactive Dashboard ...")
     
     html_template = f"""<!DOCTYPE html>
 <html lang="en">
@@ -44,11 +44,9 @@ def generate_html(json_data, output_html):
     <style>
         body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; color: #333; }}
         
-        /* Header & Control Panel */
         .header {{ background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; }}
         .header h2 {{ margin-top: 0; color: #1a237e; border-bottom: 2px solid #f0f2f5; padding-bottom: 10px; }}
         
-        /* Tabs Styles */
         .tab-container {{ display: flex; border-bottom: 2px solid #e9ecef; margin-bottom: 20px; }}
         .tab-btn {{ padding: 12px 24px; cursor: pointer; border: none; background: none; font-size: 16px; font-weight: 600; color: #6c757d; border-bottom: 3px solid transparent; transition: all 0.2s ease; outline: none; }}
         .tab-btn:hover {{ color: #1a237e; }}
@@ -65,9 +63,8 @@ def generate_html(json_data, output_html):
         input[type="range"] {{ width: 100%; cursor: pointer; }}
         input[type="text"] {{ padding: 8px 12px; border-radius: 4px; border: 1px solid #ced4da; font-size: 14px; outline: none; transition: border-color 0.2s; }}
         input[type="text"]:focus {{ border-color: #1a237e; box-shadow: 0 0 0 2px rgba(26,35,126,0.2); }}
-        select, input[type="checkbox"] {{ cursor: pointer; padding: 8px; border-radius: 4px; border: 1px solid #ced4da; font-size: 14px; }}
+        select, input[type="checkbox"] {{ cursor: pointer; padding: 8px; border-radius: 4px; border: 1px solid #ced4da; font-size: 14px; margin-right: 5px; }}
         
-        /* Dashboard Grid Layout */
         .dashboard-grid {{ display: flex; flex-direction: column; gap: 20px; }}
         .row-top {{ display: flex; gap: 20px; height: 500px; }}
         .row-bottom {{ display: flex; gap: 20px; height: 350px; }}
@@ -80,35 +77,33 @@ def generate_html(json_data, output_html):
         .hist-card {{ flex: 5; }}
         .bar-card {{ flex: 5; }}
         
-        /* Table Styles */
         table {{ width: 100%; border-collapse: collapse; font-size: 13px; }}
         th, td {{ padding: 10px 8px; text-align: left; border-bottom: 1px solid #eee; }}
         th {{ position: sticky; top: 0; background-color: #f8f9fa; z-index: 10; }}
         tr:hover {{ background-color: #f1f3f5; cursor: pointer; }}
         .highlight-row {{ background-color: #fff3cd !important; }}
         
-        /* Raw Data Table Container */
         .raw-data-container {{ background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); overflow-x: auto; max-height: 800px; }}
-        #rawDataSearch {{ margin-bottom: 15px; width: 300px; }}
-
-        /* Tooltip */
         .tooltip {{ position: absolute; background: rgba(255, 255, 255, 0.98); border: 1px solid #e9ecef; padding: 15px; border-radius: 8px; pointer-events: none; opacity: 0; box-shadow: 0 10px 20px rgba(0,0,0,0.1); font-size: 13px; z-index: 100; min-width: 220px; }}
         .axis-label {{ font-size: 12px; font-weight: bold; fill: #6c757d; }}
+        
+        .filter-list {{ display: flex; flex-direction: column; gap: 8px; margin-top: 10px; background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #dee2e6; }}
+        .filter-list label {{ font-weight: normal; cursor: pointer; display: flex; justify-content: flex-start; align-items: center; font-size: 13px; }}
     </style>
 </head>
 <body>
 
     <div class="header">
-        <h2>🚀 Momentum Screener</h2>
+        <h2>Momentum Screener</h2>
         
         <div class="tab-container">
-            <button class="tab-btn active" onclick="openTab('dashboard-tab')">📊 Dashboard</button>
-            <button class="tab-btn" onclick="openTab('rawdata-tab')">📋 Raw Data</button>
+            <button class="tab-btn active" onclick="openTab('dashboard-tab')">Dashboard</button>
+            <button class="tab-btn" onclick="openTab('rawdata-tab')">Raw Data</button>
         </div>
 
         <div class="control-panel">
             <div class="control-group" style="min-width: 150px;">
-                <label>🔍 Search Ticker</label>
+                <label>Search Ticker</label>
                 <input type="text" id="searchInput" placeholder="e.g., TSLA, NVDA..." autocomplete="off">
             </div>
             
@@ -122,22 +117,30 @@ def generate_html(json_data, output_html):
             </div>
             
             <div class="control-group" style="background:#fff3cd; padding:10px; border-radius:6px; border:1px solid #ffeeba;">
-                <label style="color:#856404;">🔥 Min Rank Filter <span class="filter-badge" id="minRankVal">0</span></label>
+                <label style="color:#856404;">Min Rank Filter <span class="filter-badge" id="minRankVal">0</span></label>
                 <input type="range" id="minRankSlider" min="0" max="100" value="0">
             </div>
 
-            <div class="control-group">
+            <div class="control-group" style="min-width: 250px;">
                 <label>View Selection</label>
                 <select id="quadrantFilter">
-                    <option value="All">🌐 All Quadrants</option>
-                    <option value="Q1">🟩 Q1: Leaders (Strong/Strong)</option>
-                    <option value="Q2">🟥 Q2: Dark Horses (Weak/Strong)</option>
-                    <option value="Q3">⬜ Q3: Laggards (Weak/Weak)</option>
-                    <option value="Q4">🟧 Q4: Decelerating (Strong/Weak)</option>
+                    <option value="All">All Quadrants</option>
+                    <option value="Q1">Q1: Leaders</option>
+                    <option value="Q2">Q2: Dark Horses</option>
+                    <option value="Q3">Q3: Laggards</option>
+                    <option value="Q4">Q4: Decelerating</option>
                 </select>
-                <label style="font-weight:normal; justify-content:flex-start; gap:8px; margin-top:10px; cursor:pointer;">
-                    <input type="checkbox" id="maFilter"> 🛡️ MA Uptrend Only
-                </label>
+                <div class="filter-list">
+                    <label>
+                        <input type="checkbox" id="maFilter"> MA Uptrend Only
+                    </label>
+                    <label>
+                        <input type="checkbox" id="tenPercentFilter"> Close to High 10%
+                    </label>
+                    <label>
+                        <input type="checkbox" id="breakoutFilter"> Breakout with Volume
+                    </label>
+                </div>
             </div>
         </div>
     </div>
@@ -182,8 +185,7 @@ def generate_html(json_data, output_html):
             <h3 class="card-title">Complete Raw Dataset (<span id="rawStockCount">0</span>)</h3>
             <table id="rawDataTable">
                 <thead>
-                    <tr id="rawTableHeader">
-                        </tr>
+                    <tr id="rawTableHeader"></tr>
                 </thead>
                 <tbody></tbody>
             </table>
@@ -196,7 +198,6 @@ def generate_html(json_data, output_html):
         const rawData = {json_data};
         const colors = {{'Q1': '#2ecc71', 'Q2': '#e74c3c', 'Q3': '#95a5a6', 'Q4': '#f39c12'}};
 
-        // Tab Switching Logic
         function openTab(tabId) {{
             document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -204,9 +205,6 @@ def generate_html(json_data, output_html):
             event.currentTarget.classList.add('active');
         }}
 
-        // ==========================================
-        // 1. Setup Scatter Plot
-        // ==========================================
         const scMargin = {{top: 20, right: 30, bottom: 40, left: 50}};
         const scElem = document.getElementById('scatterPlot');
         const scW = scElem.clientWidth - scMargin.left - scMargin.right;
@@ -238,9 +236,6 @@ def generate_html(json_data, output_html):
         const dotsGroup = scSvg.append("g");
         const tooltip = d3.select("#tooltip");
 
-        // ==========================================
-        // 2. Setup Histogram
-        // ==========================================
         const hMargin = {{top: 20, right: 30, bottom: 40, left: 40}};
         const hElem = document.getElementById('histogramChart');
         const hW = hElem.clientWidth - hMargin.left - hMargin.right;
@@ -258,9 +253,6 @@ def generate_html(json_data, output_html):
         hSvg.append("text").attr("class", "axis-label").attr("x", hW/2).attr("y", hH + 35).style("text-anchor", "middle").text("Acceleration Score");
         hSvg.append("line").attr("x1", hX(0)).attr("x2", hX(0)).attr("y1", 0).attr("y2", hH).attr("stroke", "#e74c3c").attr("stroke-dasharray", "4,4");
 
-        // ==========================================
-        // 3. Setup Bar Chart
-        // ==========================================
         const bMargin = {{top: 20, right: 30, bottom: 40, left: 160}};
         const bElem = document.getElementById('barChart');
         const bW = bElem.clientWidth - bMargin.left - bMargin.right;
@@ -277,25 +269,14 @@ def generate_html(json_data, output_html):
         const bYAxis = bSvg.append("g");
         bSvg.append("text").attr("class", "axis-label").attr("x", bW/2).attr("y", bH + 35).style("text-anchor", "middle").text("Avg. Acceleration Score");
 
-        // ==========================================
-        // 4. Raw Data Initialization
-        // ==========================================
         function initRawDataTable() {{
             if (rawData.length === 0) return;
-            
-            // Extract keys for headers
             const keys = Object.keys(rawData[0]);
-            
-            // Populate Header
             const thead = d3.select("#rawTableHeader");
-            thead.selectAll("th").data(keys).enter()
-                 .append("th").text(d => d);
+            thead.selectAll("th").data(keys).enter().append("th").text(d => d);
         }}
         initRawDataTable();
 
-        // ==========================================
-        // 5. Global Update Logic
-        // ==========================================
         function getDynamicQuadrant(d, qx, qy) {{
             if (d.rank >= qx && d.season_rank >= qy) return 'Q1';
             if (d.rank < qx && d.season_rank >= qy) return 'Q2';
@@ -303,21 +284,26 @@ def generate_html(json_data, output_html):
             return 'Q4';
         }}
 
+        function isTrue(val) {{
+            return val === true || val === 1 || val === "1" || val === "true" || val === "True";
+        }}
+
         function update() {{
             const qX = +d3.select("#qxSlider").node().value;
             const qY = +d3.select("#qySlider").node().value;
             const minRank = +d3.select("#minRankSlider").node().value;
             const selectedQ = d3.select("#quadrantFilter").node().value;
+            
             const needsMA = d3.select("#maFilter").node().checked;
+            const needsTenPercent = d3.select("#tenPercentFilter").node().checked;
+            const needsBreakout = d3.select("#breakoutFilter").node().checked;
             
             const searchQuery = d3.select("#searchInput").node().value.trim().toUpperCase();
 
-            // Update UI Labels
             d3.select("#qxVal").text(qX);
             d3.select("#qyVal").text(qY);
             d3.select("#minRankVal").text(minRank);
 
-            // Update Scatter Axis Lines
             vLine.transition().duration(200).attr("x1", scX(qX)).attr("x2", scX(qX));
             hLine.transition().duration(200).attr("y1", scY(qY)).attr("y2", scY(qY));
             qTexts[0].attr("x", scX((100+qX)/2)).attr("y", scY((100+qY)/2));
@@ -325,19 +311,20 @@ def generate_html(json_data, output_html):
             qTexts[2].attr("x", scX(qX/2)).attr("y", scY(qY/2));
             qTexts[3].attr("x", scX((100+qX)/2)).attr("y", scY(qY/2));
 
-            // Data Filtering
             rawData.forEach(d => {{ d.current_quad = getDynamicQuadrant(d, qX, qY); }});
             
             const filteredData = rawData.filter(d => {{
                 const rankMatch = d.rank >= minRank;
                 const searchMatch = searchQuery === "" || String(d.name).toUpperCase().includes(searchQuery);
                 const qMatch = selectedQ === "All" || d.current_quad === selectedQ;
-                const maMatch = !needsMA || d.above_all_moving_avg_line === true;
                 
-                return rankMatch && searchMatch && qMatch && maMatch;
+                const maMatch = !needsMA || isTrue(d.above_all_moving_avg_line);
+                const tenPercentMatch = !needsTenPercent || isTrue(d['close_to_high_10%']);
+                const breakoutMatch = !needsBreakout || isTrue(d.breakout_with_big_volume); 
+                
+                return rankMatch && searchMatch && qMatch && maMatch && tenPercentMatch && breakoutMatch;
             }});
 
-            // ---------------- Update Scatter Plot ----------------
             const circles = dotsGroup.selectAll("circle").data(filteredData, d => d.name);
             
             circles.enter().append("circle").attr("class", d => `dot-${{d.name}}`)
@@ -359,7 +346,10 @@ def generate_html(json_data, output_html):
                         Season Rank: <strong>${{d.season_rank.toFixed(2)}}</strong><br/>
                         Quadrant: <strong style="color:${{colors[d.current_quad]}}">${{d.current_quad}}</strong><br/>
                         Acc Score: <strong>${{d.acceleration.toFixed(2)}}</strong><br/>
-                        Volatility: ${{d['volatility(%)']}}%
+                        Volatility: ${{d['volatility(%)']}}%<br/>
+                        <hr style="margin:5px 0; border:0; border-top:1px solid #eee;"/>
+                        Close to High 10%: ${{ isTrue(d['close_to_high_10%']) ? '<span style="color:#e74c3c; font-weight:bold;">Yes</span>' : 'No' }}<br/>
+                        Breakout with Vol: ${{ isTrue(d.breakout_with_big_volume) ? '<span style="color:#2ecc71; font-weight:bold;">Yes</span>' : 'No' }}
                     `).style("left", (event.pageX + 15) + "px").style("top", (event.pageY - 28) + "px");
                 }})
                 .on("mouseout", function(event, d) {{
@@ -375,7 +365,6 @@ def generate_html(json_data, output_html):
 
             circles.exit().transition().duration(200).attr("r", 0).remove();
 
-            // ---------------- Update Dashboard Table ----------------
             const tableData = [...filteredData].sort((a, b) => b.acceleration - a.acceleration);
             d3.select("#stockCount").text(tableData.length);
             
@@ -392,7 +381,6 @@ def generate_html(json_data, output_html):
             rows.append("td").text(d => d.acceleration.toFixed(2));
             rows.append("td").text(d => `${{d['volatility(%)'].toFixed(1)}}%`);
 
-            // ---------------- Update Raw Data Table ----------------
             d3.select("#rawStockCount").text(filteredData.length);
             const rawTbody = d3.select("#rawDataTable tbody");
             rawTbody.selectAll("tr").remove();
@@ -404,14 +392,12 @@ def generate_html(json_data, output_html):
                 keys.forEach(key => {{
                     rawRows.append("td").text(d => {{
                         let val = d[key];
-                        // Basic formatting for numbers
                         if (typeof val === 'number') return Number.isInteger(val) ? val : val.toFixed(4);
                         return val;
                     }});
                 }});
             }}
 
-            // ---------------- Update Histogram ----------------
             hXAxis.transition().duration(500).call(d3.axisBottom(hX));
             
             if(filteredData.length > 0) {{
@@ -433,7 +419,6 @@ def generate_html(json_data, output_html):
                 hSvg.selectAll(".bar").transition().duration(300).attr("y", hH).attr("height", 0).remove();
             }}
 
-            // ---------------- Update Bar Chart ----------------
             if(filteredData.length > 0) {{
                 const indRollup = d3.rollup(filteredData, v => d3.mean(v, d => d.acceleration), d => d.industry_name);
                 const minCount = searchQuery === "" ? 2 : 1;
@@ -472,12 +457,10 @@ def generate_html(json_data, output_html):
 """
     with open(output_html, 'w', encoding='utf-8') as f:
         f.write(html_template)
-    print(f"✅ Dashboard successfully generated: {output_html}")
+    print(f"[INFO] Dashboard successfully generated: {output_html}")
 
 def deploy_to_github(source_path, target_path):
-
-    print("🚀 [Deploy] 開始同步到 GitHub...")
-    
+    print("[INFO] Syncing to GitHub...")
     src = Path(source_path)
     dst = Path(target_path)
     
@@ -488,20 +471,17 @@ def deploy_to_github(source_path, target_path):
         target_dir = dst.parent
         date_str = datetime.now().strftime('%Y-%m-%d')
         
-        # 由於 Github CI/CD 在您的 workflow 中曾有過取消或失敗的紀錄，
-        # 在本地執行這個推送是相對安全的選擇。
         subprocess.run(["git", "add", dst.name], cwd=target_dir, check=True)
         subprocess.run(["git", "commit", "-m", f"Update: {date_str}"], cwd=target_dir, check=True)
         subprocess.run(["git", "push"], cwd=target_dir, check=True)
         
-        print(f"✅ [Deploy] 成功！{date_str} 版本已推送至 GitHub。")
-        
+        print(f"[SUCCESS] Version {date_str} deployed to GitHub.")
     except Exception as e:
-        print(f"❌ [Deploy] 同步失敗: {e}")
+        print(f"[ERROR] Sync failed: {e}")
 
 if __name__ == "__main__":
     print("="*50)
-    print("🚀 Momentum Workflow")
+    print(" Momentum Workflow")
     print("="*50)
     
     try:
@@ -516,10 +496,10 @@ if __name__ == "__main__":
         generate_html(json_string, OUTPUT_HTML)
         
         target_path = Path(__file__).parents[1] / "galaxy-dashboard" / "momentum_dashboard.html"
-        deploy_to_github(source_path=OUTPUT_HTML,target_path=target_path)
+        deploy_to_github(source_path=OUTPUT_HTML, target_path=target_path)
 
-        print("\n🎉 All Done!")
-        print(f"👉 Latest file used: {INPUT_FILE}")
-        print(f"👉 Open '{OUTPUT_HTML}' to explore.")
+        print("\n All Done!")
+        print(f" Latest file used: {INPUT_FILE}")
+        print(f" Open '{OUTPUT_HTML}' to explore.")
     except Exception as e:
-        print(f"\n❌ Error: {str(e)}")
+        print(f"\n[ERROR]: {str(e)}")
