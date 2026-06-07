@@ -15,3 +15,5 @@ logs/
 database/
 *.txt
 *.json
+momentum_dashboard/
+solar_system_test/
