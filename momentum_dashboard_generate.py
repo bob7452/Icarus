@@ -8,7 +8,6 @@ import shutil
 from datetime import datetime
 
 def find_latest_file(pattern='rs_model_*.csv'):
-    # 支援在當前目錄尋找，也支援您原本的 rs_report 資料夾結構
     search_paths = [pattern, f"rs_report/{pattern}"]
     list_of_files = []
     for p in search_paths:
@@ -17,7 +16,6 @@ def find_latest_file(pattern='rs_model_*.csv'):
     if not list_of_files:
         raise FileNotFoundError(f"找不到任何符合的 CSV 檔案。請確認資料夾內有 rs_model_*.csv")
         
-    # 以檔案修改時間作為排序依據，精準抓取「最新」產生的一個
     latest_file = max(list_of_files, key=os.path.getmtime)
     return latest_file
 
@@ -34,7 +32,7 @@ def process_data(input_file):
     return json_data
 
 def generate_html(json_data, output_html):
-    print("🎨 Generating Ultimate Interactive Dashboard with Search ...")
+    print("🎨 Generating Ultimate Interactive Dashboard with Search and Raw Data Tab ...")
     
     html_template = f"""<!DOCTYPE html>
 <html lang="en">
@@ -50,6 +48,14 @@ def generate_html(json_data, output_html):
         .header {{ background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; }}
         .header h2 {{ margin-top: 0; color: #1a237e; border-bottom: 2px solid #f0f2f5; padding-bottom: 10px; }}
         
+        /* Tabs Styles */
+        .tab-container {{ display: flex; border-bottom: 2px solid #e9ecef; margin-bottom: 20px; }}
+        .tab-btn {{ padding: 12px 24px; cursor: pointer; border: none; background: none; font-size: 16px; font-weight: 600; color: #6c757d; border-bottom: 3px solid transparent; transition: all 0.2s ease; outline: none; }}
+        .tab-btn:hover {{ color: #1a237e; }}
+        .tab-btn.active {{ color: #1a237e; border-bottom-color: #1a237e; }}
+        .tab-content {{ display: none; }}
+        .tab-content.active {{ display: block; }}
+
         .control-panel {{ display: flex; flex-wrap: wrap; gap: 20px; margin-top: 15px; background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #e9ecef; }}
         .control-group {{ display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 200px; }}
         .control-group label {{ font-weight: 600; font-size: 13px; color: #495057; display: flex; justify-content: space-between; align-items: center; }}
@@ -81,6 +87,10 @@ def generate_html(json_data, output_html):
         tr:hover {{ background-color: #f1f3f5; cursor: pointer; }}
         .highlight-row {{ background-color: #fff3cd !important; }}
         
+        /* Raw Data Table Container */
+        .raw-data-container {{ background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); overflow-x: auto; max-height: 800px; }}
+        #rawDataSearch {{ margin-bottom: 15px; width: 300px; }}
+
         /* Tooltip */
         .tooltip {{ position: absolute; background: rgba(255, 255, 255, 0.98); border: 1px solid #e9ecef; padding: 15px; border-radius: 8px; pointer-events: none; opacity: 0; box-shadow: 0 10px 20px rgba(0,0,0,0.1); font-size: 13px; z-index: 100; min-width: 220px; }}
         .axis-label {{ font-size: 12px; font-weight: bold; fill: #6c757d; }}
@@ -90,6 +100,12 @@ def generate_html(json_data, output_html):
 
     <div class="header">
         <h2>🚀 Momentum Screener</h2>
+        
+        <div class="tab-container">
+            <button class="tab-btn active" onclick="openTab('dashboard-tab')">📊 Dashboard</button>
+            <button class="tab-btn" onclick="openTab('rawdata-tab')">📋 Raw Data</button>
+        </div>
+
         <div class="control-panel">
             <div class="control-group" style="min-width: 150px;">
                 <label>🔍 Search Ticker</label>
@@ -126,36 +142,51 @@ def generate_html(json_data, output_html):
         </div>
     </div>
 
-    <div class="dashboard-grid">
-        <div class="row-top">
-            <div class="card scatter-card">
-                <h3 class="card-title">Dynamic Quadrant Matrix</h3>
-                <div id="scatterPlot" style="width:100%; height:calc(100% - 40px);"></div>
+    <div id="dashboard-tab" class="tab-content active">
+        <div class="dashboard-grid">
+            <div class="row-top">
+                <div class="card scatter-card">
+                    <h3 class="card-title">Dynamic Quadrant Matrix</h3>
+                    <div id="scatterPlot" style="width:100%; height:calc(100% - 40px);"></div>
+                </div>
+                <div class="card table-card">
+                    <h3 class="card-title">Actionable Watchlist (<span id="stockCount">0</span>)</h3>
+                    <table id="dataTable">
+                        <thead>
+                            <tr>
+                                <th>Ticker</th>
+                                <th>Quadrant</th>
+                                <th>Acc. Score</th>
+                                <th>Vol(%)</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
             </div>
-            <div class="card table-card">
-                <h3 class="card-title">Actionable Watchlist (<span id="stockCount">0</span>)</h3>
-                <table id="dataTable">
-                    <thead>
-                        <tr>
-                            <th>Ticker</th>
-                            <th>Quadrant</th>
-                            <th>Acc. Score</th>
-                            <th>Vol(%)</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
+            <div class="row-bottom">
+                <div class="card hist-card">
+                    <h3 class="card-title">Acceleration Distribution</h3>
+                    <div id="histogramChart" style="width:100%; height:calc(100% - 40px);"></div>
+                </div>
+                <div class="card bar-card">
+                    <h3 class="card-title">Industry Money Flow (Top 10 Accelerating)</h3>
+                    <div id="barChart" style="width:100%; height:calc(100% - 40px);"></div>
+                </div>
             </div>
         </div>
-        <div class="row-bottom">
-            <div class="card hist-card">
-                <h3 class="card-title">Acceleration Distribution</h3>
-                <div id="histogramChart" style="width:100%; height:calc(100% - 40px);"></div>
-            </div>
-            <div class="card bar-card">
-                <h3 class="card-title">Industry Money Flow (Top 10 Accelerating)</h3>
-                <div id="barChart" style="width:100%; height:calc(100% - 40px);"></div>
-            </div>
+    </div>
+
+    <div id="rawdata-tab" class="tab-content">
+        <div class="raw-data-container">
+            <h3 class="card-title">Complete Raw Dataset (<span id="rawStockCount">0</span>)</h3>
+            <table id="rawDataTable">
+                <thead>
+                    <tr id="rawTableHeader">
+                        </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
         </div>
     </div>
     
@@ -164,6 +195,14 @@ def generate_html(json_data, output_html):
     <script>
         const rawData = {json_data};
         const colors = {{'Q1': '#2ecc71', 'Q2': '#e74c3c', 'Q3': '#95a5a6', 'Q4': '#f39c12'}};
+
+        // Tab Switching Logic
+        function openTab(tabId) {{
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            event.currentTarget.classList.add('active');
+        }}
 
         // ==========================================
         // 1. Setup Scatter Plot
@@ -239,7 +278,23 @@ def generate_html(json_data, output_html):
         bSvg.append("text").attr("class", "axis-label").attr("x", bW/2).attr("y", bH + 35).style("text-anchor", "middle").text("Avg. Acceleration Score");
 
         // ==========================================
-        // 4. Global Update Logic
+        // 4. Raw Data Initialization
+        // ==========================================
+        function initRawDataTable() {{
+            if (rawData.length === 0) return;
+            
+            // Extract keys for headers
+            const keys = Object.keys(rawData[0]);
+            
+            // Populate Header
+            const thead = d3.select("#rawTableHeader");
+            thead.selectAll("th").data(keys).enter()
+                 .append("th").text(d => d);
+        }}
+        initRawDataTable();
+
+        // ==========================================
+        // 5. Global Update Logic
         // ==========================================
         function getDynamicQuadrant(d, qx, qy) {{
             if (d.rank >= qx && d.season_rank >= qy) return 'Q1';
@@ -255,15 +310,14 @@ def generate_html(json_data, output_html):
             const selectedQ = d3.select("#quadrantFilter").node().value;
             const needsMA = d3.select("#maFilter").node().checked;
             
-            // 🌟 獲取搜尋關鍵字並轉大寫
             const searchQuery = d3.select("#searchInput").node().value.trim().toUpperCase();
 
-            // 更新 UI 標籤
+            // Update UI Labels
             d3.select("#qxVal").text(qX);
             d3.select("#qyVal").text(qY);
             d3.select("#minRankVal").text(minRank);
 
-            // 更新散佈圖十字線與背景文字
+            // Update Scatter Axis Lines
             vLine.transition().duration(200).attr("x1", scX(qX)).attr("x2", scX(qX));
             hLine.transition().duration(200).attr("y1", scY(qY)).attr("y2", scY(qY));
             qTexts[0].attr("x", scX((100+qX)/2)).attr("y", scY((100+qY)/2));
@@ -271,22 +325,19 @@ def generate_html(json_data, output_html):
             qTexts[2].attr("x", scX(qX/2)).attr("y", scY(qY/2));
             qTexts[3].attr("x", scX((100+qX)/2)).attr("y", scY(qY/2));
 
-            // 資料過濾與動態象限標記
+            // Data Filtering
             rawData.forEach(d => {{ d.current_quad = getDynamicQuadrant(d, qX, qY); }});
             
             const filteredData = rawData.filter(d => {{
-                // 1. Min Rank Filter
                 const rankMatch = d.rank >= minRank;
-                // 2. 🌟 Search Filter (支援模糊比對)
                 const searchMatch = searchQuery === "" || String(d.name).toUpperCase().includes(searchQuery);
-                // 3. 其他 Filter
                 const qMatch = selectedQ === "All" || d.current_quad === selectedQ;
                 const maMatch = !needsMA || d.above_all_moving_avg_line === true;
                 
                 return rankMatch && searchMatch && qMatch && maMatch;
             }});
 
-            // ---------------- 更新散佈圖 ----------------
+            // ---------------- Update Scatter Plot ----------------
             const circles = dotsGroup.selectAll("circle").data(filteredData, d => d.name);
             
             circles.enter().append("circle").attr("class", d => `dot-${{d.name}}`)
@@ -296,7 +347,6 @@ def generate_html(json_data, output_html):
                     d3.select(this).style("stroke", "#1a237e").style("stroke-width", 2).attr("r", 8);
                     d3.select(`#row-${{d.name}}`).classed("highlight-row", true);
                     
-                    // 若有搜尋關鍵字，散佈圖點擊後自動滾動到表格該列 (增強體驗)
                     const row = document.getElementById(`row-${{d.name}}`);
                     if(row) row.scrollIntoView({{ behavior: 'smooth', block: 'nearest' }});
 
@@ -325,7 +375,7 @@ def generate_html(json_data, output_html):
 
             circles.exit().transition().duration(200).attr("r", 0).remove();
 
-            // ---------------- 更新資料表 ----------------
+            // ---------------- Update Dashboard Table ----------------
             const tableData = [...filteredData].sort((a, b) => b.acceleration - a.acceleration);
             d3.select("#stockCount").text(tableData.length);
             
@@ -342,10 +392,28 @@ def generate_html(json_data, output_html):
             rows.append("td").text(d => d.acceleration.toFixed(2));
             rows.append("td").text(d => `${{d['volatility(%)'].toFixed(1)}}%`);
 
-            // ---------------- 更新直方圖 ----------------
+            // ---------------- Update Raw Data Table ----------------
+            d3.select("#rawStockCount").text(filteredData.length);
+            const rawTbody = d3.select("#rawDataTable tbody");
+            rawTbody.selectAll("tr").remove();
+            
+            if (filteredData.length > 0) {{
+                const keys = Object.keys(filteredData[0]);
+                const rawRows = rawTbody.selectAll("tr").data(filteredData).enter().append("tr");
+                
+                keys.forEach(key => {{
+                    rawRows.append("td").text(d => {{
+                        let val = d[key];
+                        // Basic formatting for numbers
+                        if (typeof val === 'number') return Number.isInteger(val) ? val : val.toFixed(4);
+                        return val;
+                    }});
+                }});
+            }}
+
+            // ---------------- Update Histogram ----------------
             hXAxis.transition().duration(500).call(d3.axisBottom(hX));
             
-            // 若搜尋導致無資料，避免報錯
             if(filteredData.length > 0) {{
                 const histogram = d3.bin().value(d => d.acceleration).domain(hX.domain()).thresholds(hX.ticks(40));
                 const bins = histogram(filteredData);
@@ -365,10 +433,9 @@ def generate_html(json_data, output_html):
                 hSvg.selectAll(".bar").transition().duration(300).attr("y", hH).attr("height", 0).remove();
             }}
 
-            // ---------------- 更新產業資金長條圖 ----------------
+            // ---------------- Update Bar Chart ----------------
             if(filteredData.length > 0) {{
                 const indRollup = d3.rollup(filteredData, v => d3.mean(v, d => d.acceleration), d => d.industry_name);
-                // 搜尋模式下，哪怕該產業只有一檔也顯示 (方便觀察搜尋的個股落在哪個板塊)，否則至少需2檔
                 const minCount = searchQuery === "" ? 2 : 1;
                 const indCounts = d3.rollup(filteredData, v => v.length, d => d.industry_name);
                 
@@ -397,7 +464,6 @@ def generate_html(json_data, output_html):
             }}
         }}
 
-        // 🌟 綁定所有事件 (加入 searchInput 的 input 事件)
         d3.selectAll("input[type=range], select, input[type=checkbox], #searchInput").on("input", update);
         update();
     </script>
@@ -422,6 +488,8 @@ def deploy_to_github(source_path, target_path):
         target_dir = dst.parent
         date_str = datetime.now().strftime('%Y-%m-%d')
         
+        # 由於 Github CI/CD 在您的 workflow 中曾有過取消或失敗的紀錄，
+        # 在本地執行這個推送是相對安全的選擇。
         subprocess.run(["git", "add", dst.name], cwd=target_dir, check=True)
         subprocess.run(["git", "commit", "-m", f"Update: {date_str}"], cwd=target_dir, check=True)
         subprocess.run(["git", "push"], cwd=target_dir, check=True)
