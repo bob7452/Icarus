@@ -10,49 +10,47 @@ import sys
 
 
 # =================================================================
-# STEP 1: Logic to find the nearest monthly expiration (Third Friday) - FIXED
+# STEP 1: Logic to find the NEXT monthly expiration (下下個月的第三個週五)
 # =================================================================
 
-def find_nearest_monthly_expiration(date):
+def find_next_monthly_expiration(date):
     """
-    Finds the first third Friday of a month that strictly occurs AFTER the given snapshot_date (date).
-    This ensures the contract rolls to the next month if the snapshot date is on the current expiration.
+    找出給定日期之後的「第二個」第三週星期五（下下個月的結算日）。
+    如果遇到假日，結算日會自動提前一天到週四。
     """
-    # 實例化日曆，用來判斷國定假日 (例如 Juneteenth, Good Friday 等)
     nyse = get_calendar('NYSE')
     
     def get_third_friday(d):
         """Helper function to find the 3rd Friday of the month of date 'd'."""
-        # Start at the 1st day of the month
         d = d.replace(day=1)
         friday_count = 0
         while True:
-            # 4 is Friday
-            if d.weekday() == 4: 
+            if d.weekday() == 4: # 4 is Friday
                 friday_count += 1
             if friday_count == 3:
                 # 檢查這天是否為假日
                 valid_days = nyse.valid_days(start_date=d, end_date=d)
                 if valid_days.empty:
-                    # 如果週五休市，選擇權標準結算日會提前一天到週四
+                    # 如果週五休市，提前一天到週四
                     return d - timedelta(days=1)
                 return d
-            
-            # Move to the next day
             d += timedelta(days=1)
 
-    # 1. Calculate the 3rd Friday of the current month
-    expiry_date = get_third_friday(date)
+    # 1. 取得當月的第三個星期五
+    nearest_expiry = get_third_friday(date)
     
-    # 2. Check if this expiration has passed or is today (expiry_date <= date)
-    # ✅ 取消註解：檢查是否需要換到下個月
-    if expiry_date <= date:
-        # Roll to the next month's expiry.
+    # 2. 確保找到的是「未來」的最近結算日
+    if nearest_expiry <= date:
         next_month_start = date.replace(day=28) + timedelta(days=4)
         next_month_start = next_month_start.replace(day=1)
-        expiry_date = get_third_friday(next_month_start)
+        nearest_expiry = get_third_friday(next_month_start)
         
-    return expiry_date
+    # 3. 往下一一個月尋找 (目標：下下個月的結算日)
+    target_month_start = nearest_expiry.replace(day=28) + timedelta(days=4)
+    target_month_start = target_month_start.replace(day=1)
+    target_expiry = get_third_friday(target_month_start)
+    
+    return target_expiry
 
 
 def run_skew_plot():
@@ -71,19 +69,20 @@ def run_skew_plot():
     unique_snapshots = df['snapshot_date'].unique()
     target_exp_map = {}
     for date in unique_snapshots:
-        target_exp_map[date] = find_nearest_monthly_expiration(pd.to_datetime(date).to_pydatetime())
+        # ✅ 呼叫更新後的 find_next_monthly_expiration
+        target_exp_map[date] = find_next_monthly_expiration(pd.to_datetime(date).to_pydatetime())
 
     # Apply the target expiration date
     df['target_expiration'] = df['snapshot_date'].map(target_exp_map)
 
-    # ----------------- STEP 3: Filter Data and Prepare for Plotting - MODIFIED -----------------
+    # ----------------- STEP 3: Filter Data and Prepare for Plotting -----------------
 
-    # Filter for rows where expiration equals the target nearest monthly expiration
+    # Filter for rows where expiration equals the target next monthly expiration
     result_df = df[df['expiration'] == df['target_expiration']].sort_values(by='snapshot_date').reset_index(drop=True)
 
 
     # =================================================================
-    # ✅ MODIFIED STEP: Q95 & Q5 Calculation (Internal Only) and Q95 Alert Column (CSV Export)
+    # STEP: Q95 & Q5 Calculation (Internal Only) and Q95 Alert Column
     # =================================================================
 
     # Define skew columns
@@ -101,39 +100,35 @@ def run_skew_plot():
         # 標記超過 Q95 為 'Panic Alert'，其餘為空
         result_df[alert_col_name] = np.where(result_df[col] > q95_val, 'Panic Alert', '')
 
-    # Print Result (updated with only alert tags)
+    # Print Result 
     print("\n" + "="*70)
-    print("### 📉 Nearest Monthly Option Volatility Skew Changes (Q95 Alert Tags Only) ###")
+    print("### 📉 Next Monthly Option Volatility Skew Changes (Q95 Alert Tags Only) ###")
     print("="*70)
-    # 顯示將匯出至 CSV 的核心欄位和 Alert 欄位
     print(result_df[['snapshot_date', 'expiration'] + skew_cols + [f"{col}_Q95_Alert" for col in skew_cols]])
     print("\n" + "="*70)
 
 
     # =================================================================
-    # ✅ STEP 4: Save Data to CSV File (Now only contains Skew values and Alert Tags)
+    # STEP 4: Save Data to CSV File
     # =================================================================
 
-    # Define file name
-    filename = f"nearest_monthly_skew.csv"
+    # ✅ 改檔名為 next_monthly_skew.csv 避免覆蓋舊檔
+    filename = f"next_monthly_skew.csv"
 
-    # 決定要匯出的欄位
     columns_to_export = ['snapshot_date', 'expiration', 'target_expiration'] + \
                         skew_cols + \
                         [f"{col}_Q95_Alert" for col in skew_cols]
 
     try:
-        # Save CSV file, only including core data and the Q95 Alert tag
         result_df[columns_to_export].to_csv(filename, index=False)
         print(f"🎉 Data successfully saved to file: {os.path.abspath(filename)}")
     except Exception as e:
         print(f"❌ Error saving CSV file: {e}")
 
     # =================================================================
-    # STEP 5: Plot Three Separate Time Series (Q95 Red, Q5 Dark Blue) - UNCHANGED LOGIC
+    # STEP 5: Plot Three Separate Time Series (Q95 Red, Q5 Dark Blue)
     # =================================================================
 
-    # Melt the skew columns for unified plotting format
     plot_df = result_df.melt(
         id_vars=['snapshot_date', 'expiration'], 
         value_vars=skew_cols, 
@@ -141,32 +136,27 @@ def run_skew_plot():
         value_name='Skew_Value'
     ).sort_values(by='snapshot_date') 
 
-    # Define plot metrics
     metrics_to_plot = {
         'put_10delta_skew': {'color': '#1f77b4', 'label': 'Put 10-Delta Skew (Extreme OTM)', 'title': 'Put 10-Delta Skew Trend (Historical Extremes)'},
         'put_25delta_skew': {'color': '#ff7f0e', 'label': 'Put 25-Delta Skew (Mid OTM)', 'title': 'Put 25-Delta Skew Trend (Historical Extremes)'},
         'call_put_skew': {'color': '#2ca02c', 'label': 'Call-Put Skew', 'title': 'Call-Put Skew Trend (Historical Extremes)'}
     }
 
-    # Find roll-over dates for annotation
     roll_over_dates = result_df['snapshot_date'][result_df['expiration'].shift(1) != result_df['expiration']].tolist()
 
-    # Set plot style and create figure with three subplots, sharing the X-axis
     sns.set_theme(style="whitegrid")
     fig, axes = plt.subplots(nrows=3, ncols=1, figsize=(16, 12), sharex=True)
-    fig.suptitle('Volatility Skew Changes for Nearest Monthly Option (Continuous Rolling Contract)', fontsize=18, fontweight='bold')
+    
+    # ✅ 標題更新為 Next Monthly Option
+    fig.suptitle('Volatility Skew Changes for Next Monthly Option (Continuous Rolling Contract)', fontsize=18, fontweight='bold')
 
     for i, (skew_type, params) in enumerate(metrics_to_plot.items()):
         ax = axes[i]
         
-        # Filter data for the current skew type
         current_df = plot_df[plot_df['Skew_Type'] == skew_type]
-        
-        # Get the specific Q95 and Q05 values for this skew type
         q95_value = q95_values[skew_type]
         q05_value = q05_values[skew_type]
         
-        # Plot the line (Continuous Curve)
         sns.lineplot(
             data=current_df, 
             x='snapshot_date', 
@@ -177,34 +167,24 @@ def run_skew_plot():
             ax=ax
         )
         
-        # Plot Zero Line
         ax.axhline(0, color='gray', linestyle=':', linewidth=1.0, alpha=0.7, label='Zero Line')
-        
-        # Plot Q95 Quantile Line (Upper Extreme - Red)
         ax.axhline(q95_value, color='#e31a1c', linestyle='--', linewidth=1.5, alpha=0.9, label=f'Q95 Panic ({q95_value:.4f})')
-        
-        # Plot Q05 Quantile Line (Lower Extreme - Dark Blue)
         ax.axhline(q05_value, color='#1f78b4', linestyle='--', linewidth=1.5, alpha=0.9, label=f'Q05 Complacency ({q05_value:.4f})')
         
-        # Add Roll-over Annotations (Vertical Lines)
         for date in roll_over_dates:
             if date != result_df['snapshot_date'].min():
                 ax.axvline(x=date, color='grey', linestyle='--', linewidth=1.0, alpha=0.5)
 
-        # Set Title and Labels
         ax.set_title(params['title'], fontsize=14, loc='left')
         ax.set_ylabel(params['label'], fontsize=12)
-        ax.set_xlabel('') # Clear X label for shared axis
-        
-        # Add legend
-        #ax.legend(loc='lower right', fontsize=10)
+        ax.set_xlabel('') 
 
-    # Final adjustments for the shared X-axis (only the bottom chart gets the X label)
     axes[-1].set_xlabel('Snapshot Date', fontsize=14)
     plt.xticks(rotation=45, ha='right')
 
-    fig.tight_layout(rect=[0, 0, 1, 0.98]) # Adjust layout
-    #plt.show()
+    fig.tight_layout(rect=[0, 0, 1, 0.98])
+    
+    # ✅ 圖片存檔名稱也更新避免覆蓋舊圖
     plt.savefig("option_skew_summary.png")
 
 
